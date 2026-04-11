@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect, useRef } from 'react'
 import { ProductGrid }          from './components/ProductGrid'
 import { Cart }                 from './components/Cart'
 import { AgeVerificationModal } from './components/AgeVerificationModal'
-import { PixModal }             from './components/PixModal'
+import { PaymentMethodModal }   from './components/PaymentMethodModal'
 import { Screensaver }          from './components/Screensaver'
 import { SupportCall }          from './components/SupportCall'
 import { PaymentSuccess }       from './components/PaymentSuccess'
@@ -15,7 +15,7 @@ const LOGO_TAPS_ADM = 5              // toques no logo para abrir admin
 export default function App() {
   const [cart, setCart]                 = useState([])
   const [showAgeModal, setShowAgeModal] = useState(false)
-  const [showPixModal, setShowPixModal] = useState(false)
+  const [showPaymentModal, setShowPaymentModal] = useState(false)
   const [ageVerified, setAgeVerified]   = useState(false)
   const [scanFeedback, setScanFeedback] = useState(null)
   const [screensaver, setScreensaver]   = useState(true)
@@ -106,7 +106,7 @@ export default function App() {
 
   function handleCheckout() {
     if (ageBlocked) setShowAgeModal(true)
-    else            setShowPixModal(true)
+    else            setShowPaymentModal(true)
   }
 
   // ── Scanner ───────────────────────────────────────────────────────────────
@@ -122,7 +122,7 @@ export default function App() {
 
   // ── Pagamento confirmado ──────────────────────────────────────────────────
   function handlePaymentSuccess() {
-    setShowPixModal(false)
+    setShowPaymentModal(false)
     setSuccessData({ total, unidade })
     clearCart()
     setShowSupport(false)
@@ -214,13 +214,13 @@ export default function App() {
         />
       )}
 
-      {showPixModal && (
-        <PixModal
+      {showPaymentModal && (
+        <PaymentMethodModal
           items={cart}
           total={total}
           unidadeId={unidade?.id ?? null}
           onPaymentSuccess={handlePaymentSuccess}
-          onClose={() => setShowPixModal(false)}
+          onClose={() => setShowPaymentModal(false)}
         />
       )}
     </div>

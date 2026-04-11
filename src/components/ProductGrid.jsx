@@ -26,17 +26,14 @@ export function ProductGrid({ onAddToCart }) {
     return () => clearInterval(id)
   }, [])
 
-  // ── Buscar categorias disponíveis ────────────────────────────────────────
+  // ── Buscar categorias disponíveis via view ───────────────────────────────
   useEffect(() => {
     supabase
-      .from('produtos')
+      .from('categorias_disponiveis')
       .select('categoria')
-      .not('categoria', 'is', null)
-      .neq('categoria', '')
       .then(({ data }) => {
         if (!data) return
-        const unicas = [...new Set(data.map(r => r.categoria))].sort()
-        setCategorias(unicas)
+        setCategorias(data.map(r => r.categoria))
       })
   }, [])
 
@@ -50,7 +47,8 @@ export function ProductGrid({ onAddToCart }) {
     let query = supabase
       .from('produtos')
       .select('id, nome, preco, codigo_barras, estoque, imagem_url, restrito_idade, destaque, categoria')
-      .order('nome')
+      .order('estoque', { ascending: false })
+      .order('nome',    { ascending: true })
       .range(from, to)
 
     if (termo.trim()) {

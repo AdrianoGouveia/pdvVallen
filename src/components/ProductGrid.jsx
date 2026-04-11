@@ -4,16 +4,44 @@ import { supabase } from '../lib/supabase'
 const PAGE_SIZE = 60
 
 export function ProductGrid({ onAddToCart }) {
-  const [produtos, setProdutos]   = useState([])
-  const [loading, setLoading]     = useState(true)
-  const [busca, setBusca]         = useState('')
-  const [pagina, setPagina]       = useState(0)
-  const [temMais, setTemMais]     = useState(true)
-  const [buscando, setBuscando]   = useState(false)
-  const debounceRef               = useRef(null)
+  const [produtos, setProdutos]       = useState([])
+  const [categorias, setCategorias]   = useState([])
+  const [loading, setLoading]         = useState(true)
+  const [busca, setBusca]             = useState('')
+  const [categoria, setCategoria]     = useState('destaques') // 'destaques' | 'todos' | string
+  const [pagina, setPagina]           = useState(0)
+  const [temMais, setTemMais]         = useState(true)
+  const [buscando, setBuscando]       = useState(false)
+  const debounceRef                   = useRef(null)
+  const searchRef                     = useRef(null)
 
-  // Carrega página de produtos
-  const carregarProdutos = useCallback(async (termo = '', pag = 0, acumular = false) => {
+  // ── Manter foco na busca ─────────────────────────────────────────────────
+  useEffect(() => {
+    searchRef.current?.focus()
+    const id = setInterval(() => {
+      if (document.activeElement !== searchRef.current) {
+        searchRef.current?.focus()
+      }
+    }, 2000)
+    return () => clearInterval(id)
+  }, [])
+
+  // ── Buscar categorias disponíveis ────────────────────────────────────────
+  useEffect(() => {
+    supabase
+      .from('produtos')
+      .select('categoria')
+      .not('categoria', 'is', null)
+      .neq('categoria', '')
+      .then(({ data }) => {
+        if (!data) return
+        const unicas = [...new Set(data.map(r => r.categoria))].sort()
+        setCategorias(unicas)
+      })
+  }, [])
+
+  // ── Carregar produtos ────────────────────────────────────────────────────
+  const carregarProdutos = useCallback(async (termo, cat, pag, acumular = false) => {
     pag === 0 && !acumular ? setLoading(true) : setBuscando(true)
 
     const from = pag * PAGE_SIZE
@@ -21,20 +49,19 @@ export function ProductGrid({ onAddToCart }) {
 
     let query = supabase
       .from('produtos')
-      .select('id, nome, preco, codigo_barras, estoque, imagem_url, restrito_idade, destaque')
+      .select('id, nome, preco, codigo_barras, estoque, imagem_url, restrito_idade, destaque, categoria')
       .order('nome')
       .range(from, to)
 
     if (termo.trim()) {
-      // Buscando: mostra todos os produtos
       query = query.or(`nome.ilike.%${termo.trim()}%,codigo_barras.ilike.%${termo.trim()}%`)
-    } else {
-      // Sem busca: mostra só os destaques
+    } else if (cat === 'destaques') {
       query = query.eq('destaque', true)
+    } else if (cat !== 'todos') {
+      query = query.eq('categoria', cat)
     }
 
     const { data, error } = await query
-
     if (!error && data) {
       setProdutos(prev => acumular ? [...prev, ...data] : data)
       setTemMais(data.length === PAGE_SIZE)
@@ -46,7 +73,7 @@ export function ProductGrid({ onAddToCart }) {
 
   // Carga inicial
   useEffect(() => {
-    carregarProdutos('', 0, false)
+    carregarProdutos('', 'destaques', 0)
   }, [carregarProdutos])
 
   // Busca com debounce
@@ -54,28 +81,42 @@ export function ProductGrid({ onAddToCart }) {
     clearTimeout(debounceRef.current)
     debounceRef.current = setTimeout(() => {
       setPagina(0)
-      carregarProdutos(busca, 0, false)
+      carregarProdutos(busca, categoria, 0)
     }, 350)
     return () => clearTimeout(debounceRef.current)
-  }, [busca, carregarProdutos])
+  }, [busca, categoria, carregarProdutos])
 
-  // Carregar mais (scroll ou botão)
+  function selecionarCategoria(cat) {
+    setCategoria(cat)
+    setBusca('')
+    setPagina(0)
+  }
+
   function carregarMais() {
     const prox = pagina + 1
     setPagina(prox)
-    carregarProdutos(busca, prox, true)
+    carregarProdutos(busca, categoria, prox, true)
   }
 
+  const tituloVazio = busca
+    ? 'Nenhum produto encontrado.'
+    : categoria === 'destaques'
+      ? 'Nenhum produto em destaque ainda.'
+      : `Nenhum produto em "${categoria}".`
+
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full" onClick={() => searchRef.current?.focus()}>
+
       {/* Barra de busca */}
-      <div className="p-3 border-b border-vallen-border">
+      <div className="px-3 pt-3 pb-2 border-b border-vallen-border">
         <div className="relative">
           <input
+            ref={searchRef}
             type="text"
             value={busca}
             onChange={e => setBusca(e.target.value)}
             placeholder="Buscar produto ou código de barras..."
+            autoFocus
             className="w-full bg-vallen-dark border border-vallen-border rounded-lg pl-9 pr-4 py-2.5 text-sm text-vallen-white placeholder-vallen-gray focus:outline-none focus:border-vallen-green"
           />
           <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-vallen-gray" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -87,6 +128,17 @@ export function ProductGrid({ onAddToCart }) {
         </div>
       </div>
 
+      {/* Menu de categorias */}
+      {!busca && (
+        <div className="flex gap-2 px-3 py-2 overflow-x-auto border-b border-vallen-border scrollbar-none flex-shrink-0">
+          <CatBtn label="⭐ Destaques" value="destaques" atual={categoria} onClick={selecionarCategoria} />
+          <CatBtn label="Todos"        value="todos"      atual={categoria} onClick={selecionarCategoria} />
+          {categorias.map(cat => (
+            <CatBtn key={cat} label={cat} value={cat} atual={categoria} onClick={selecionarCategoria} />
+          ))}
+        </div>
+      )}
+
       {/* Grid */}
       <div className="flex-1 overflow-y-auto cart-scroll p-3">
         {loading ? (
@@ -97,12 +149,12 @@ export function ProductGrid({ onAddToCart }) {
         ) : produtos.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-vallen-gray gap-2">
             <span className="text-4xl">{busca ? '🔍' : '⭐'}</span>
-            <p className="text-sm">
-              {busca ? 'Nenhum produto encontrado.' : 'Nenhum produto em destaque ainda.'}
-            </p>
+            <p className="text-sm text-center">{tituloVazio}</p>
             {busca
               ? <button onClick={() => setBusca('')} className="text-xs text-vallen-green hover:underline">Limpar busca</button>
-              : <p className="text-xs text-center text-vallen-gray">Acesse o menu Admin para marcar produtos como destaque.</p>
+              : categoria !== 'destaques' && (
+                  <button onClick={() => selecionarCategoria('destaques')} className="text-xs text-vallen-green hover:underline">Ver destaques</button>
+                )
             }
           </div>
         ) : (
@@ -111,7 +163,7 @@ export function ProductGrid({ onAddToCart }) {
               {produtos.map(produto => (
                 <button
                   key={produto.id}
-                  onClick={() => onAddToCart(produto)}
+                  onClick={e => { e.stopPropagation(); onAddToCart(produto) }}
                   className="bg-vallen-card border border-vallen-border rounded-xl p-3 text-left hover:border-vallen-green active:scale-95 transition-all"
                 >
                   {produto.imagem_url ? (
@@ -141,7 +193,6 @@ export function ProductGrid({ onAddToCart }) {
               ))}
             </div>
 
-            {/* Carregar mais */}
             {temMais && (
               <div className="mt-4 text-center">
                 <button
@@ -157,5 +208,21 @@ export function ProductGrid({ onAddToCart }) {
         )}
       </div>
     </div>
+  )
+}
+
+function CatBtn({ label, value, atual, onClick }) {
+  const ativo = value === atual
+  return (
+    <button
+      onClick={e => { e.stopPropagation(); onClick(value) }}
+      className={`flex-shrink-0 px-4 py-1.5 rounded-full text-sm font-medium transition-all whitespace-nowrap
+        ${ativo
+          ? 'bg-vallen-green text-white shadow-sm'
+          : 'bg-vallen-dark border border-vallen-border text-vallen-muted hover:text-vallen-white hover:border-vallen-green'
+        }`}
+    >
+      {label}
+    </button>
   )
 }

@@ -62,23 +62,40 @@ export function PixModal({ items, total, unidadeId, onPaymentSuccess, onClose })
       )
       .subscribe()
 
-    // Para EFI PIX: polling chama a API EFI e atualiza o Supabase (dispara o Realtime acima)
-    let poll = null
-    if (provider === 'efi_pix') {
-      poll = setInterval(async () => {
-        try {
-          await fetch('/api/verificar-pix', {
+    // Polling como fallback garantido (funciona independente do Realtime)
+    const poll = setInterval(async () => {
+      try {
+        if (provider === 'efi_pix') {
+          // Chama verificar-pix: atualiza Supabase E já retorna se está pago
+          const res  = await fetch('/api/verificar-pix', {
             method : 'POST',
             headers: { 'Content-Type': 'application/json' },
             body   : JSON.stringify({ pedidoId, efiTxid }),
           })
-        } catch (_) { /* ignora erros temporários */ }
-      }, POLL_MS)
-    }
+          const data = await res.json()
+          if (data.pago) {
+            clearInterval(timer)
+            clearInterval(poll)
+            supabase.removeChannel(channel)
+            onPaymentSuccess()
+          }
+        } else {
+          // Asaas: checa Supabase diretamente
+          const { data } = await supabase
+            .from('pedidos').select('status').eq('id', pedidoId).single()
+          if (data?.status === 'aprovado') {
+            clearInterval(timer)
+            clearInterval(poll)
+            supabase.removeChannel(channel)
+            onPaymentSuccess()
+          }
+        }
+      } catch (_) { /* ignora erros temporários */ }
+    }, POLL_MS)
 
     return () => {
       clearInterval(timer)
-      if (poll) clearInterval(poll)
+      clearInterval(poll)
       supabase.removeChannel(channel)
     }
   }, [fase, pedidoId, provider, efiTxid, onPaymentSuccess])

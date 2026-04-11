@@ -38,6 +38,7 @@ export default function App() {
 
   function handleWake() {
     setScreensaver(false)
+    setShowSupport(true)   // abre suporte automaticamente ao iniciar a compra
     resetIdle()
   }
 

@@ -138,7 +138,7 @@ export default function App() {
 
   function handleCheckout() {
     if (ageBlocked) setShowAgeModal(true)
-    else            setShowPaymentModal(true)
+    else { stopCartTimer(); setShowPaymentModal(true) }
   }
 
   // ── Scanner ───────────────────────────────────────────────────────────────
@@ -153,13 +153,13 @@ export default function App() {
   const total = cart.reduce((acc, i) => acc + i.preco * i.quantidade, 0)
 
   // ── Pagamento confirmado ──────────────────────────────────────────────────
-  function handlePaymentSuccess() {
+  const handlePaymentSuccess = useCallback(() => {
     stopCartTimer()
     setShowPaymentModal(false)
-    setSuccessData({ total, unidade })
+    setSuccessData(sd => sd ?? { total, unidade })
     clearCart()
     setShowSupport(false)
-  }
+  }, [stopCartTimer, clearCart, total, unidade])
 
   function handleSuccessDone() {
     setSuccessData(null)

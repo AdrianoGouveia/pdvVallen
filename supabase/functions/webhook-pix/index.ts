@@ -6,9 +6,13 @@ const SUPABASE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 
 serve(async (req) => {
   try {
-    const body = await req.json()
+    // Validar token do Asaas (segurança)
+    const asaasToken = req.headers.get('asaas-access-token')
+    if (asaasToken !== 'pdv-vallen-webhook-secret-key-32chars') {
+      return new Response('unauthorized', { status: 401 })
+    }
 
-    // Asaas envia evento: { event: 'PAYMENT_RECEIVED', payment: { id, status, ... } }
+    const body = await req.json()
     const { event, payment } = body
 
     if (event !== 'PAYMENT_RECEIVED' && event !== 'PAYMENT_CONFIRMED') {

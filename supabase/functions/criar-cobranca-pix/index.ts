@@ -53,8 +53,9 @@ serve(async (req) => {
     })
     const qrData = await qrRes.json()
 
-    // 3. Salvar pedido no Supabase com status 'aguardando'
     const supabase = createClient(SUPABASE_URL, SUPABASE_KEY)
+
+    // 3. Salvar pedido com asaas_id para o webhook encontrar
     const { data: pedido, error: pedidoErr } = await supabase
       .from('pedidos')
       .insert({
@@ -68,7 +69,16 @@ serve(async (req) => {
 
     if (pedidoErr) throw new Error(`Pedido: ${pedidoErr.message}`)
 
-    // 4. Salvar itens
+    // 4. Atualizar descrição da cobrança no Asaas com número do pedido
+    await fetch(`${ASAAS_URL}/v3/payments/${cobrancaData.id}`, {
+      method : 'PUT',
+      headers: { 'Content-Type': 'application/json', 'access_token': ASAAS_KEY! },
+      body: JSON.stringify({
+        description: `Pedido #${pedido.id} — Vallen Market (${items.length} item${items.length > 1 ? 's' : ''})`,
+      }),
+    })
+
+    // 5. Salvar itens do pedido
     await supabase.from('itens_pedido').insert(
       items.map((i: any) => ({
         pedido_id     : pedido.id,
@@ -80,11 +90,10 @@ serve(async (req) => {
 
     return new Response(
       JSON.stringify({
-        pedidoId  : pedido.id,
-        asaasId   : cobrancaData.id,
-        qrCode    : qrData.payload,      // string para gerar QR
-        qrCodeImg : qrData.encodedImage, // base64 da imagem (opcional)
-        valor     : total,
+        pedidoId : pedido.id,
+        asaasId  : cobrancaData.id,
+        qrCode   : qrData.payload,
+        valor    : total,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )

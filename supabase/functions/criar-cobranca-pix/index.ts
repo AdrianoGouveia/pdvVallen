@@ -24,7 +24,9 @@ const corsHeaders = {
 function criarClienteEfi() {
   const cert = atob(EFI_CERT_B64)
   const key  = atob(EFI_KEY_B64)
-  return Deno.createHttpClient({ certChain: cert, privateKey: key })
+  // Deno 1.40+: usa 'cert' e 'key' (antigo: certChain / privateKey)
+  // deno-lint-ignore no-explicit-any
+  return (Deno.createHttpClient as any)({ cert, key })
 }
 
 async function obterTokenEfi(client: Deno.HttpClient): Promise<string> {

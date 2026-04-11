@@ -17,9 +17,9 @@ async function getToken(): Promise<string> {
     method : 'POST',
     headers: {
       'Authorization': `Basic ${btoa(`${EFI_CLIENT_ID}:${EFI_CLIENT_SECRET}`)}`,
-      'Content-Type' : 'application/json',
+      'Content-Type' : 'application/x-www-form-urlencoded',
     },
-    body: JSON.stringify({ grant_type: 'client_credentials' }),
+    body: 'grant_type=client_credentials',
   })
   if (!res.ok) throw new Error(`EFI auth: ${await res.text()}`)
   return (await res.json()).access_token

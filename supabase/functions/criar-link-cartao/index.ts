@@ -17,12 +17,14 @@ async function getToken(): Promise<string> {
     method : 'POST',
     headers: {
       'Authorization': `Basic ${btoa(`${EFI_CLIENT_ID}:${EFI_CLIENT_SECRET}`)}`,
-      'Content-Type' : 'application/json',
+      'Content-Type' : 'application/x-www-form-urlencoded',
     },
-    body: JSON.stringify({ grant_type: 'client_credentials' }),
+    body: 'grant_type=client_credentials',
   })
-  if (!res.ok) throw new Error(`EFI auth: ${await res.text()}`)
-  return (await res.json()).access_token
+  if (!res.ok) throw new Error(`EFI auth charges: ${await res.text()}`)
+  const data = await res.json()
+  if (!data.access_token) throw new Error(`EFI token vazio: ${JSON.stringify(data)}`)
+  return data.access_token
 }
 
 serve(async (req) => {

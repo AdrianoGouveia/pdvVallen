@@ -29,14 +29,23 @@ function crc16ccitt(str) {
  * Se não for numérico puro, devolve como está (email, CPF, aleatória).
  */
 function formatarChave(chave) {
-  const soDigitos = chave.replace(/\D/g, '')
+  const trimmed    = chave.trim()
+  const soDigitos  = trimmed.replace(/\D/g, '')
+
+  // UUID (chave aleatória): 32 hex + 4 hífens = 36 chars
+  const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(trimmed)
+  if (isUUID) return trimmed
+
+  // E-mail
+  if (trimmed.includes('@')) return trimmed
+
   // Telefone brasileiro: 10 ou 11 dígitos (com DDD)
-  if (soDigitos.length === 10 || soDigitos.length === 11) {
-    return `+55${soDigitos}`
-  }
-  // CPF: 11 dígitos mas começa com 0 ou padrão CPF — retorna só dígitos
+  if (soDigitos.length === 10 || soDigitos.length === 11) return `+55${soDigitos}`
+
+  // CPF: 11 dígitos
   if (soDigitos.length === 11) return soDigitos
-  return chave
+
+  return trimmed
 }
 
 /**

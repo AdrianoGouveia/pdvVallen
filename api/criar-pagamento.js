@@ -71,14 +71,18 @@ async function criarCobPix(total, items, pedidoId) {
   )
   if (!cobOk) throw new Error(`EFI PIX cob: ${JSON.stringify(cobData)}`)
 
+  // QR Code: o endpoint correto usa loc.id (não o txid)
+  const locId = cobData.loc?.id
+  if (!locId) throw new Error(`EFI PIX sem loc.id: ${JSON.stringify(cobData)}`)
+
   const { ok: qrOk, data: qrData } = await req(
-    'pix.api.efipay.com.br', `/v2/cob/${txid}/qrcode`, 'GET',
+    'pix.api.efipay.com.br', `/v2/loc/${locId}/qrcode`, 'GET',
     { 'Authorization': `Bearer ${token}` },
     null, efiAgent
   )
   if (!qrOk) throw new Error(`EFI PIX qrcode: ${JSON.stringify(qrData)}`)
 
-  return { qrCode: qrData.qrcode, efiTxid: txid }
+  return { qrCode: qrData.qrcode, efiTxid: cobData.txid ?? txid }
 }
 
 // ── EFI Cartão ────────────────────────────────────────────────────────────────
@@ -86,9 +90,10 @@ async function getEfiCartoToken() {
   const creds = Buffer.from(`${process.env.EFI_CLIENT_ID}:${process.env.EFI_CLIENT_SECRET}`).toString('base64')
   const { ok, data } = await req(
     'cobrancas.api.efipay.com.br', '/oauth/token', 'POST',
-    { 'Authorization': `Basic ${creds}`, 'Content-Type': 'application/x-www-form-urlencoded' },
-    'grant_type=client_credentials',
-    efiAgent   // mTLS também aqui
+    // EFI Charges API usa JSON body (diferente do PIX que usa form-encoded)
+    { 'Authorization': `Basic ${creds}`, 'Content-Type': 'application/json' },
+    { grant_type: 'client_credentials' },
+    efiAgent
   )
   if (!ok || !data.access_token) throw new Error(`EFI Cartão auth: ${JSON.stringify(data)}`)
   return data.access_token

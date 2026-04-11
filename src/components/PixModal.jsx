@@ -67,10 +67,9 @@ export function PixModal({ items, total, onPaymentSuccess, onClose }) {
         {/* Header */}
         <div className="text-center mb-5">
           <img
-            src="/icons/icon-192.png"
-            alt="Vallen"
-            className="w-10 h-10 mx-auto mb-2 rounded-lg"
-            onError={e => e.target.style.display = 'none'}
+            src="https://d2xsxph8kpxj0f.cloudfront.net/310419663030100181/bfwXvEbkbq6M7kWytZDaKG/v3_logo_fundo_preto_85834ede.webp"
+            alt="Vallen Market"
+            className="h-8 w-auto object-contain mx-auto mb-3"
           />
           <h2 className="text-xl font-bold text-vallen-white">Pagamento via PIX</h2>
           <p className="text-sm text-vallen-muted mt-1">

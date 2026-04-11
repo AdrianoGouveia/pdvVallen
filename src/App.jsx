@@ -117,13 +117,12 @@ export default function App() {
       {/* Header */}
       <header className="flex items-center justify-between px-5 py-3 bg-vallen-black border-b border-vallen-border flex-shrink-0">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 bg-vallen-green rounded-lg flex items-center justify-center font-bold text-white text-sm">
-            V
-          </div>
-          <div>
-            <h1 className="text-base font-bold text-vallen-white leading-tight">Vallen Market</h1>
-            <p className="text-xs text-vallen-muted leading-tight">Autoatendimento · Aberto 24h</p>
-          </div>
+          <img
+            src="https://d2xsxph8kpxj0f.cloudfront.net/310419663030100181/bfwXvEbkbq6M7kWytZDaKG/v3_logo_fundo_preto_85834ede.webp"
+            alt="Vallen Market"
+            className="h-9 w-auto object-contain"
+          />
+          <p className="text-xs text-vallen-muted leading-tight hidden sm:block">Autoatendimento · Aberto 24h</p>
         </div>
 
         {/* Botão de suporte */}

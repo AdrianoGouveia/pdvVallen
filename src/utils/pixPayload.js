@@ -1,14 +1,19 @@
 /**
- * Gera o Payload PIX (BRCode / EMV) dinâmico seguindo o padrão BACEN.
- * Docs: https://www.bcb.gov.br/content/estabilidadefinanceira/pix/Regulamento_Pix/II_ManualdePadroesparaIniciacaodoPix.pdf
+ * Gera o Payload PIX estático (BRCode / EMV) seguindo o padrão BACEN.
+ * Tipo 11 = estático uso único — funciona em TODOS os apps bancários
+ * sem precisar de integração com PSP/banco.
+ *
+ * Referência:
+ * https://www.bcb.gov.br/content/estabilidadefinanceira/pix/Regulamento_Pix/
+ * II_ManualdePadroesparaIniciacaodoPix.pdf
  */
 
 function emvField(id, value) {
-  const len = value.length.toString().padStart(2, '0')
+  const len = String(value.length).padStart(2, '0')
   return `${id}${len}${value}`
 }
 
-function crc16(str) {
+function crc16ccitt(str) {
   let crc = 0xffff
   for (let i = 0; i < str.length; i++) {
     crc ^= str.charCodeAt(i) << 8
@@ -20,40 +25,72 @@ function crc16(str) {
 }
 
 /**
+ * Formata chave PIX telefone para o padrão E.164 (+5511999999999).
+ * Se não for numérico puro, devolve como está (email, CPF, aleatória).
+ */
+function formatarChave(chave) {
+  const soDigitos = chave.replace(/\D/g, '')
+  // Telefone brasileiro: 10 ou 11 dígitos (com DDD)
+  if (soDigitos.length === 10 || soDigitos.length === 11) {
+    return `+55${soDigitos}`
+  }
+  // CPF: 11 dígitos mas começa com 0 ou padrão CPF — retorna só dígitos
+  if (soDigitos.length === 11) return soDigitos
+  return chave
+}
+
+/**
  * @param {object} params
- * @param {string} params.chave       - Chave PIX (email, CPF, telefone, aleatória)
- * @param {string} params.nome        - Nome do recebedor (max 25 chars)
- * @param {string} params.cidade      - Cidade do recebedor (max 15 chars)
- * @param {number} params.valor       - Valor em reais
- * @param {string} [params.txId]      - Identificador da transação (max 25 chars)
- * @returns {string} Payload BRCode pronto para gerar QR Code
+ * @param {string} params.chave    - Chave PIX (telefone, email, CPF, aleatória)
+ * @param {string} params.nome     - Nome do recebedor (max 25 chars, sem acentos)
+ * @param {string} params.cidade   - Cidade do recebedor (max 15 chars, sem acentos)
+ * @param {number} params.valor    - Valor em reais (ex: 12.50)
+ * @param {string} [params.txId]   - ID da transação (max 25 chars, alfanumérico)
+ * @returns {string} Payload BRCode completo com CRC16
  */
 export function gerarPixPayload({ chave, nome, cidade, valor, txId = '***' }) {
-  const nomeClean  = nome.normalize('NFD').replace(/[\u0300-\u036f]/g, '').substring(0, 25).toUpperCase()
-  const cidadeClean = cidade.normalize('NFD').replace(/[\u0300-\u036f]/g, '').substring(0, 15).toUpperCase()
-  const valorStr   = valor.toFixed(2)
+  const chaveFormatada = formatarChave(chave)
 
-  // 26 — Merchant Account Information (PIX)
-  const pixInfo = emvField('00', 'br.gov.bcb.pix') + emvField('01', chave)
+  const nomeClean  = nome
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^A-Za-z0-9 ]/g, '')
+    .substring(0, 25)
+    .toUpperCase()
+    .trim()
+
+  const cidadeClean = cidade
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^A-Za-z0-9 ]/g, '')
+    .substring(0, 15)
+    .toUpperCase()
+    .trim()
+
+  const txIdClean = txId
+    .replace(/[^A-Za-z0-9]/g, '')
+    .substring(0, 25) || '***'
+
+  const valorStr = valor.toFixed(2)
+
+  // ID 26 — Merchant Account Information
+  const pixInfo = emvField('00', 'br.gov.bcb.pix') + emvField('01', chaveFormatada)
   const mai     = emvField('26', pixInfo)
 
-  // 62 — Additional Data Field Template
-  const txIdField = emvField('05', txId)
-  const adf       = emvField('62', txIdField)
+  // ID 62 — Additional Data Field Template
+  const adf = emvField('62', emvField('05', txIdClean))
 
-  // Monta payload sem CRC
-  const payload =
-    emvField('00', '01')          + // Payload Format Indicator
-    emvField('01', '12')          + // Point of Initiation (12 = dinâmico one-time)
-    mai                           +
-    emvField('52', '0000')        + // Merchant Category Code
-    emvField('53', '986')         + // Transaction Currency (BRL)
-    emvField('54', valorStr)      + // Transaction Amount
-    emvField('58', 'BR')          + // Country Code
-    emvField('59', nomeClean)     + // Merchant Name
-    emvField('60', cidadeClean)   + // Merchant City
-    adf                           +
-    '6304'                          // CRC placeholder
+  // Monta payload sem CRC (campo 6304 = placeholder)
+  const body =
+    emvField('00', '01')       +   // Payload Format Indicator
+    emvField('01', '11')       +   // 11 = estático uso único (funciona em todos os bancos)
+    mai                        +   // Merchant Account Info (chave PIX)
+    emvField('52', '0000')     +   // MCC
+    emvField('53', '986')      +   // BRL
+    emvField('54', valorStr)   +   // Valor
+    emvField('58', 'BR')       +   // País
+    emvField('59', nomeClean)  +   // Nome recebedor
+    emvField('60', cidadeClean)+   // Cidade
+    adf                        +   // Referência da transação
+    '6304'                         // CRC placeholder
 
-  return payload + crc16(payload)
+  return body + crc16ccitt(body)
 }

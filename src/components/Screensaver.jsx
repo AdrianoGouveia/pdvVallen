@@ -22,14 +22,13 @@ export function Screensaver({ onWake }) {
       onTouchStart={onWake}
     >
       {/* Logo / nome */}
-      <div className="flex flex-col items-center gap-6 animate-pulse-slow">
-        <div className="w-24 h-24 bg-vallen-green rounded-2xl flex items-center justify-center shadow-lg shadow-vallen-green/30">
-          <span className="text-white font-black text-5xl">V</span>
-        </div>
-        <div className="text-center">
-          <h1 className="text-4xl font-black text-vallen-white tracking-wide">Vallen Market</h1>
-          <p className="text-vallen-muted text-lg mt-1">O mercado do seu condomínio · 24h</p>
-        </div>
+      <div className="flex flex-col items-center gap-8 animate-pulse-slow">
+        <img
+          src="https://d2xsxph8kpxj0f.cloudfront.net/310419663030100181/bfwXvEbkbq6M7kWytZDaKG/v3_logo_fundo_preto_85834ede.webp"
+          alt="Vallen Market"
+          className="h-20 w-auto object-contain drop-shadow-lg"
+        />
+        <p className="text-vallen-muted text-lg">O mercado do seu condomínio · Aberto 24h</p>
       </div>
 
       {/* Relógio */}

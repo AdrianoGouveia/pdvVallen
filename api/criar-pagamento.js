@@ -90,8 +90,8 @@ async function getEfiCartoToken() {
   const creds = Buffer.from(`${process.env.EFI_CLIENT_ID}:${process.env.EFI_CLIENT_SECRET}`).toString('base64')
   const { ok, data } = await req(
     'cobrancas.api.efipay.com.br', '/v1/authorize', 'POST',
-    { 'Authorization': `Basic ${creds}`, 'Content-Type': 'application/x-www-form-urlencoded' },
-    'grant_type=client_credentials',
+    { 'Authorization': `Basic ${creds}`, 'Content-Type': 'application/json' },
+    { grant_type: 'client_credentials', client_id: process.env.EFI_CLIENT_ID, client_secret: process.env.EFI_CLIENT_SECRET },
     plainAgent  // Cobranças não usa mTLS
   )
   if (!ok || !data.access_token) throw new Error(`EFI Cartão auth: ${JSON.stringify(data)}`)

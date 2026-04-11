@@ -22,14 +22,14 @@ function req(hostname, path, headers, agent) {
 
 async function getToken() {
   const creds = Buffer.from(`${process.env.EFI_CLIENT_ID}:${process.env.EFI_CLIENT_SECRET}`).toString('base64')
-  const body  = Buffer.from('grant_type=client_credentials')
+  const body  = Buffer.from(JSON.stringify({ grant_type: 'client_credentials', client_id: process.env.EFI_CLIENT_ID, client_secret: process.env.EFI_CLIENT_SECRET }))
   return new Promise((resolve, reject) => {
     const r = https.request(
       {
         hostname: 'cobrancas.api.efipay.com.br', path: '/v1/authorize', method: 'POST',
         headers: {
           'Authorization' : `Basic ${creds}`,
-          'Content-Type'  : 'application/x-www-form-urlencoded',
+          'Content-Type'  : 'application/json',
           'Content-Length': body.length,
         },
         // Cobranças não usa mTLS

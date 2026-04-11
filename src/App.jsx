@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from 'react'
+import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
 import { ProductGrid }          from './components/ProductGrid'
 import { Cart }                 from './components/Cart'
 import { AgeVerificationModal } from './components/AgeVerificationModal'
@@ -9,8 +9,9 @@ import { PaymentSuccess }       from './components/PaymentSuccess'
 import { AdminPanel, useUnidade } from './components/AdminPanel'
 import { useBarcodeScanner }    from './hooks/useBarcodeScanner'
 
-const IDLE_TIMEOUT  = 2 * 60 * 1000  // 2 minutos → screensaver
-const LOGO_TAPS_ADM = 5              // toques no logo para abrir admin
+const IDLE_TIMEOUT       = 2 * 60 * 1000  // 2 minutos sem toque → screensaver
+const CART_IDLE_TIMEOUT  = 60            // segundos sem novas inserções → cancela compra
+const LOGO_TAPS_ADM      = 5             // toques no logo para abrir admin
 
 export default function App() {
   const [cart, setCart]                 = useState([])
@@ -22,9 +23,12 @@ export default function App() {
   const [showSupport, setShowSupport]   = useState(false)
   const [showAdmin, setShowAdmin]       = useState(false)
   const [successData, setSuccessData]   = useState(null) // { total, unidade }
-  const idleTimerRef  = useRef(null)
-  const logoTapsRef   = useRef(0)
-  const logoTimerRef  = useRef(null)
+  const [cartCountdown, setCartCountdown] = useState(null) // null = inativo
+  const idleTimerRef   = useRef(null)
+  const cartTimerRef   = useRef(null)
+  const cartTickRef    = useRef(null)
+  const logoTapsRef    = useRef(0)
+  const logoTimerRef   = useRef(null)
 
   const { unidade } = useUnidade()
 
@@ -74,7 +78,8 @@ export default function App() {
     })
     setScanFeedback({ type: 'ok', msg: `+ ${produto.nome}` })
     setTimeout(() => setScanFeedback(null), 1500)
-  }, [])
+    startCartTimer()
+  }, [startCartTimer])
 
   const incrementItem = useCallback((id) => {
     setCart(prev => prev.map(i => i.id === id ? { ...i, quantidade: i.quantidade + 1 } : i))
@@ -95,10 +100,36 @@ export default function App() {
     })
   }, [])
 
+  // ── Timer de inatividade do carrinho ─────────────────────────────────────
+  const stopCartTimer = useCallback(() => {
+    clearTimeout(cartTimerRef.current)
+    clearInterval(cartTickRef.current)
+    setCartCountdown(null)
+  }, [])
+
+  const startCartTimer = useCallback(() => {
+    stopCartTimer()
+    setCartCountdown(CART_IDLE_TIMEOUT)
+    let remaining = CART_IDLE_TIMEOUT
+    cartTickRef.current = setInterval(() => {
+      remaining -= 1
+      setCartCountdown(remaining)
+      if (remaining <= 0) stopCartTimer()
+    }, 1000)
+    cartTimerRef.current = setTimeout(() => {
+      stopCartTimer()
+      setCart([])
+      setAgeVerified(false)
+      setShowPaymentModal(false)
+      setScreensaver(true)
+    }, CART_IDLE_TIMEOUT * 1000)
+  }, [stopCartTimer])
+
   const clearCart = useCallback(() => {
+    stopCartTimer()
     setCart([])
     setAgeVerified(false)
-  }, [])
+  }, [stopCartTimer])
 
   // ── Idade / checkout ──────────────────────────────────────────────────────
   const hasRestrictedItem = cart.some(i => i.restrito_idade)
@@ -122,6 +153,7 @@ export default function App() {
 
   // ── Pagamento confirmado ──────────────────────────────────────────────────
   function handlePaymentSuccess() {
+    stopCartTimer()
     setShowPaymentModal(false)
     setSuccessData({ total, unidade })
     clearCart()
@@ -153,7 +185,7 @@ export default function App() {
           <img
             src="https://d2xsxph8kpxj0f.cloudfront.net/310419663030100181/bfwXvEbkbq6M7kWytZDaKG/v3_logo_fundo_preto_85834ede.webp"
             alt="Vallen Market"
-            className="h-9 w-auto object-contain cursor-pointer"
+            className="h-14 w-auto object-contain cursor-pointer"
             onClick={handleLogoTap}
             title="Toque 5x para admin"
           />
@@ -198,7 +230,9 @@ export default function App() {
             onDecrement={decrementItem}
             onRemove={removeItem}
             onCheckout={handleCheckout}
+            onCancel={clearCart}
             ageBlocked={ageBlocked}
+            countdown={cartCountdown}
           />
         </div>
       </div>

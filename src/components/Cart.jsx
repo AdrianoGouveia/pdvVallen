@@ -1,8 +1,9 @@
 import { CartItem } from './CartItem'
 
-export function Cart({ items, onIncrement, onDecrement, onRemove, onCheckout, ageBlocked }) {
+export function Cart({ items, onIncrement, onDecrement, onRemove, onCheckout, onCancel, ageBlocked, countdown }) {
   const total   = items.reduce((acc, i) => acc + i.preco * i.quantidade, 0)
   const isEmpty = items.length === 0
+  const showWarning = countdown !== null && countdown <= 20
 
   return (
     <div className="flex flex-col h-full bg-vallen-black border-l border-vallen-border">
@@ -41,6 +42,15 @@ export function Cart({ items, onIncrement, onDecrement, onRemove, onCheckout, ag
           </span>
         </div>
 
+        {/* Aviso de timeout iminente */}
+        {showWarning && (
+          <div className="bg-orange-900/40 border border-orange-600/60 rounded-lg px-3 py-2">
+            <p className="text-xs text-orange-300 text-center font-medium">
+              Compra cancelada em {countdown}s sem atividade
+            </p>
+          </div>
+        )}
+
         {/* Aviso de verificação de idade pendente */}
         {ageBlocked && !isEmpty && (
           <div className="bg-yellow-900/30 border border-yellow-700/50 rounded-lg px-3 py-2">
@@ -64,6 +74,16 @@ export function Cart({ items, onIncrement, onDecrement, onRemove, onCheckout, ag
         >
           {ageBlocked ? '🔞 Verificar Idade' : 'Pagar com PIX'}
         </button>
+
+        {/* Cancelar compra */}
+        {!isEmpty && (
+          <button
+            onClick={onCancel}
+            className="w-full py-2 text-sm text-vallen-muted hover:text-red-400 transition-colors"
+          >
+            Cancelar compra
+          </button>
+        )}
       </div>
     </div>
   )

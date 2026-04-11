@@ -1,0 +1,29 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  @apply bg-vallen-dark text-vallen-white font-sans;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+
+/* Scroll suave no carrinho */
+.cart-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: #008A2E #1a1a1a;
+}
+
+/* Screensaver pulse */
+@keyframes pulse-slow {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: .7; }
+}
+.animate-pulse-slow { animation: pulse-slow 3s ease-in-out infinite; }
+
+/* Transições globais */
+* {
+  transition-property: color, background-color, border-color, opacity;
+  transition-duration: 150ms;
+  transition-timing-function: ease;
+}

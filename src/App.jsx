@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { ProductGrid }          from './components/ProductGrid'
 import { Cart }                 from './components/Cart'
 import { AgeVerificationModal } from './components/AgeVerificationModal'
@@ -65,6 +65,38 @@ export default function App() {
     }
   }
 
+  // ── Timer de inatividade do carrinho ─────────────────────────────────────
+  const stopCartTimer = useCallback(() => {
+    clearTimeout(cartTimerRef.current)
+    clearInterval(cartTickRef.current)
+    setCartCountdown(null)
+  }, [])
+
+  const startCartTimer = useCallback(() => {
+    clearTimeout(cartTimerRef.current)
+    clearInterval(cartTickRef.current)
+    setCartCountdown(CART_IDLE_TIMEOUT)
+    let remaining = CART_IDLE_TIMEOUT
+    cartTickRef.current = setInterval(() => {
+      remaining -= 1
+      setCartCountdown(remaining)
+    }, 1000)
+    cartTimerRef.current = setTimeout(() => {
+      clearInterval(cartTickRef.current)
+      setCartCountdown(null)
+      setCart([])
+      setAgeVerified(false)
+      setShowPaymentModal(false)
+      setScreensaver(true)
+    }, CART_IDLE_TIMEOUT * 1000)
+  }, [])
+
+  const clearCart = useCallback(() => {
+    stopCartTimer()
+    setCart([])
+    setAgeVerified(false)
+  }, [stopCartTimer])
+
   // ── Carrinho ──────────────────────────────────────────────────────────────
   const addToCart = useCallback((produto) => {
     setCart(prev => {
@@ -99,37 +131,6 @@ export default function App() {
       return remaining
     })
   }, [])
-
-  // ── Timer de inatividade do carrinho ─────────────────────────────────────
-  const stopCartTimer = useCallback(() => {
-    clearTimeout(cartTimerRef.current)
-    clearInterval(cartTickRef.current)
-    setCartCountdown(null)
-  }, [])
-
-  const startCartTimer = useCallback(() => {
-    stopCartTimer()
-    setCartCountdown(CART_IDLE_TIMEOUT)
-    let remaining = CART_IDLE_TIMEOUT
-    cartTickRef.current = setInterval(() => {
-      remaining -= 1
-      setCartCountdown(remaining)
-      if (remaining <= 0) stopCartTimer()
-    }, 1000)
-    cartTimerRef.current = setTimeout(() => {
-      stopCartTimer()
-      setCart([])
-      setAgeVerified(false)
-      setShowPaymentModal(false)
-      setScreensaver(true)
-    }, CART_IDLE_TIMEOUT * 1000)
-  }, [stopCartTimer])
-
-  const clearCart = useCallback(() => {
-    stopCartTimer()
-    setCart([])
-    setAgeVerified(false)
-  }, [stopCartTimer])
 
   // ── Idade / checkout ──────────────────────────────────────────────────────
   const hasRestrictedItem = cart.some(i => i.restrito_idade)

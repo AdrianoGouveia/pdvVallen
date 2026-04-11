@@ -112,7 +112,7 @@ async function criarLinkCartao(total, items, pedidoId) {
         amount: 1,
         value : valorCts,
       }],
-      shippings: [],
+      shippings: [{ name: 'Sem frete', value: 0 }],
     },
     plainAgent  // sem mTLS
   )

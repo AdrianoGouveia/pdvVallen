@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase'
 
 const PAGE_SIZE = 60
 
-export function ProductGrid({ onAddToCart }) {
+export function ProductGrid({ onAddToCart, focusEnabled = true }) {
   const [produtos, setProdutos]       = useState([])
   const [categorias, setCategorias]   = useState([])
   const [loading, setLoading]         = useState(true)
@@ -15,16 +15,17 @@ export function ProductGrid({ onAddToCart }) {
   const debounceRef                   = useRef(null)
   const searchRef                     = useRef(null)
 
-  // ── Manter foco na busca ─────────────────────────────────────────────────
+  // ── Manter foco na busca (só quando não há modal aberta) ─────────────────
   useEffect(() => {
+    if (!focusEnabled) return
     searchRef.current?.focus()
     const id = setInterval(() => {
-      if (document.activeElement !== searchRef.current) {
+      if (focusEnabled && document.activeElement !== searchRef.current) {
         searchRef.current?.focus()
       }
     }, 2000)
     return () => clearInterval(id)
-  }, [])
+  }, [focusEnabled])
 
   // ── Buscar categorias disponíveis via view ───────────────────────────────
   useEffect(() => {

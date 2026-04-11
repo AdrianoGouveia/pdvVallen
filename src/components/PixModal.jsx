@@ -40,41 +40,47 @@ export function PixModal({ items, total, unidadeId, onPaymentSuccess, onClose })
     criarCobranca()
   }, [])
 
-  // 2. Polling — EFI PIX: checa direto na API EFI | Asaas: checa Supabase
+  // 2. Confirmação — Realtime escuta mudança no Supabase + polling EFI atualiza o banco
   useEffect(() => {
     if (fase !== 'aguardando' || !pedidoId) return
 
     const timer = setInterval(() => setSegundos(s => s + 1), 1000)
 
-    const poll = setInterval(async () => {
-      try {
-        if (provider === 'efi_pix') {
-          // Polling ativo: consulta EFI diretamente e atualiza Supabase se pago
-          const res  = await fetch('/api/verificar-pix', {
+    // Realtime: dispara assim que o status mudar para 'aprovado' no Supabase
+    const channel = supabase
+      .channel(`pedido-${pedidoId}`)
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'pedidos', filter: `id=eq.${pedidoId}` },
+        (payload) => {
+          if (payload.new?.status === 'aprovado') {
+            clearInterval(timer)
+            supabase.removeChannel(channel)
+            onPaymentSuccess()
+          }
+        }
+      )
+      .subscribe()
+
+    // Para EFI PIX: polling chama a API EFI e atualiza o Supabase (dispara o Realtime acima)
+    let poll = null
+    if (provider === 'efi_pix') {
+      poll = setInterval(async () => {
+        try {
+          await fetch('/api/verificar-pix', {
             method : 'POST',
             headers: { 'Content-Type': 'application/json' },
             body   : JSON.stringify({ pedidoId, efiTxid }),
           })
-          const data = await res.json()
-          if (data.pago) {
-            clearInterval(poll)
-            clearInterval(timer)
-            onPaymentSuccess()
-          }
-        } else {
-          // Asaas: webhook atualiza Supabase, só precisa monitorar a tabela
-          const { data } = await supabase
-            .from('pedidos').select('status').eq('id', pedidoId).single()
-          if (data?.status === 'aprovado') {
-            clearInterval(poll)
-            clearInterval(timer)
-            onPaymentSuccess()
-          }
-        }
-      } catch (_) { /* ignora erros de rede temporários */ }
-    }, POLL_MS)
+        } catch (_) { /* ignora erros temporários */ }
+      }, POLL_MS)
+    }
 
-    return () => { clearInterval(poll); clearInterval(timer) }
+    return () => {
+      clearInterval(timer)
+      if (poll) clearInterval(poll)
+      supabase.removeChannel(channel)
+    }
   }, [fase, pedidoId, provider, efiTxid, onPaymentSuccess])
 
   function handleCopiar() {

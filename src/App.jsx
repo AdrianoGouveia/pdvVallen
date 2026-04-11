@@ -222,7 +222,10 @@ export default function App() {
       {/* Main */}
       <div className={`flex flex-1 overflow-hidden transition-all ${showSupport ? 'mr-80 xl:mr-96' : ''}`}>
         <div className="flex-1 overflow-hidden">
-          <ProductGrid onAddToCart={addToCart} />
+          <ProductGrid
+            onAddToCart={addToCart}
+            focusEnabled={!showAgeModal && !showPaymentModal && !showAdmin && !showSupport}
+          />
         </div>
         <div className="w-80 xl:w-96 flex-shrink-0 overflow-hidden">
           <Cart

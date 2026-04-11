@@ -17,7 +17,7 @@ serve(async (req) => {
   }
 
   try {
-    const { items, total } = await req.json()
+    const { items, total, unidadeId } = await req.json()
 
     if (!total || total <= 0) {
       throw new Error('Valor inválido: ' + total)
@@ -63,6 +63,7 @@ serve(async (req) => {
         status         : 'aguardando',
         asaas_id       : cobrancaData.id,
         asaas_reference: cobrancaData.externalReference,
+        ...(unidadeId ? { unidade_id: unidadeId } : {}),
       })
       .select('id')
       .single()

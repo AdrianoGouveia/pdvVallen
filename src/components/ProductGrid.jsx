@@ -21,13 +21,16 @@ export function ProductGrid({ onAddToCart }) {
 
     let query = supabase
       .from('produtos')
-      .select('id, nome, preco, codigo_barras, estoque, imagem_url, restrito_idade')
+      .select('id, nome, preco, codigo_barras, estoque, imagem_url, restrito_idade, destaque')
       .order('nome')
       .range(from, to)
 
     if (termo.trim()) {
-      // Busca por nome OU código de barras
+      // Buscando: mostra todos os produtos
       query = query.or(`nome.ilike.%${termo.trim()}%,codigo_barras.ilike.%${termo.trim()}%`)
+    } else {
+      // Sem busca: mostra só os destaques
+      query = query.eq('destaque', true)
     }
 
     const { data, error } = await query
@@ -93,13 +96,14 @@ export function ProductGrid({ onAddToCart }) {
           </div>
         ) : produtos.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-vallen-gray gap-2">
-            <span className="text-4xl">🔍</span>
-            <p className="text-sm">Nenhum produto encontrado.</p>
-            {busca && (
-              <button onClick={() => setBusca('')} className="text-xs text-vallen-green hover:underline">
-                Limpar busca
-              </button>
-            )}
+            <span className="text-4xl">{busca ? '🔍' : '⭐'}</span>
+            <p className="text-sm">
+              {busca ? 'Nenhum produto encontrado.' : 'Nenhum produto em destaque ainda.'}
+            </p>
+            {busca
+              ? <button onClick={() => setBusca('')} className="text-xs text-vallen-green hover:underline">Limpar busca</button>
+              : <p className="text-xs text-center text-vallen-gray">Acesse o menu Admin para marcar produtos como destaque.</p>
+            }
           </div>
         ) : (
           <>

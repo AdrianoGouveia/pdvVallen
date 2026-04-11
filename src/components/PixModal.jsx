@@ -5,7 +5,7 @@ import { supabase } from '../lib/supabase'
 const EDGE_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/criar-cobranca-pix`
 const POLL_MS  = 3000 // checar pagamento a cada 3 segundos
 
-export function PixModal({ items, total, onPaymentSuccess, onClose }) {
+export function PixModal({ items, total, unidadeId, onPaymentSuccess, onClose }) {
   const [fase, setFase]       = useState('criando')   // criando | aguardando | erro
   const [qrCode, setQrCode]   = useState('')
   const [pedidoId, setPedidoId] = useState(null)
@@ -23,7 +23,7 @@ export function PixModal({ items, total, onPaymentSuccess, onClose }) {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
           },
-          body: JSON.stringify({ items, total }),
+          body: JSON.stringify({ items, total, unidadeId }),
         })
 
         const data = await res.json()

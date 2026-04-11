@@ -44,13 +44,10 @@ export default function App() {
 
   // ── Carrinho helpers ──────────────────────────────────────────────────────
   const addToCart = useCallback((produto) => {
-    if (produto.estoque <= 0) return
-
     setCart(prev => {
       const idx = prev.findIndex(i => i.id === produto.id)
       if (idx >= 0) {
         const updated = [...prev]
-        if (updated[idx].quantidade >= produto.estoque) return prev
         updated[idx] = { ...updated[idx], quantidade: updated[idx].quantidade + 1 }
         return updated
       }
@@ -63,7 +60,7 @@ export default function App() {
 
   const incrementItem = useCallback((id) => {
     setCart(prev => prev.map(i =>
-      i.id === id && i.quantidade < i.estoque ? { ...i, quantidade: i.quantidade + 1 } : i
+      i.id === id ? { ...i, quantidade: i.quantidade + 1 } : i
     ))
   }, [])
 

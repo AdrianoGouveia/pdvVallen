@@ -90,10 +90,10 @@ async function getEfiCartoToken() {
   const creds = Buffer.from(`${process.env.EFI_CLIENT_ID}:${process.env.EFI_CLIENT_SECRET}`).toString('base64')
   const { ok, data } = await req(
     'cobrancas.api.efipay.com.br', '/oauth/token', 'POST',
-    // EFI Charges API usa JSON body (diferente do PIX que usa form-encoded)
+    // EFI Charges NÃO usa mTLS (só PIX usa certificado)
     { 'Authorization': `Basic ${creds}`, 'Content-Type': 'application/json' },
     { grant_type: 'client_credentials' },
-    efiAgent
+    plainAgent
   )
   if (!ok || !data.access_token) throw new Error(`EFI Cartão auth: ${JSON.stringify(data)}`)
   return data.access_token
@@ -115,7 +115,7 @@ async function criarLinkCartao(total, items, pedidoId) {
       }],
       shippings: [],
     },
-    efiAgent
+    plainAgent  // sem mTLS
   )
   if (!chOk) throw new Error(`EFI Cartão charge: ${JSON.stringify(chData)}`)
   const chargeId = chData.data.charge_id
@@ -130,7 +130,7 @@ async function criarLinkCartao(total, items, pedidoId) {
       request_delivery_address: false,
       payment_method : 'credit_card',
     },
-    efiAgent
+    plainAgent  // sem mTLS
   )
   if (!lkOk) throw new Error(`EFI Cartão link: ${JSON.stringify(lkData)}`)
 
@@ -207,7 +207,7 @@ export default async function handler(req, res) {
     if (provider === 'efi_pix') {
       const { qrCode, efiTxid } = await criarCobPix(total, items, pedido.id)
       await supabase.from('pedidos').update({ efi_txid: efiTxid }).eq('id', pedido.id)
-      result = { qrCode, tipo: 'pix' }
+      result = { qrCode, efiTxid, tipo: 'pix' }
     } else if (provider === 'efi_cartao') {
       const { linkPagamento, chargeId } = await criarLinkCartao(total, items, pedido.id)
       await supabase.from('pedidos').update({ efi_charge_id: chargeId }).eq('id', pedido.id)

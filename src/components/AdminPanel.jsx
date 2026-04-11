@@ -20,7 +20,7 @@ export function useUnidade() {
 
 // ── Painel administrativo ─────────────────────────────────────────────────────
 export function AdminPanel({ onClose }) {
-  const [aba, setAba]           = useState('unidade')   // 'unidade' | 'destaque'
+  const [aba, setAba]           = useState('unidade')
   const [pin, setPin]           = useState('')
   const [autenticado, setAuth]  = useState(false)
   const [pinErro, setPinErro]   = useState(false)
@@ -33,10 +33,15 @@ export function AdminPanel({ onClose }) {
   })
 
   // Destaque
-  const [busca, setBusca]         = useState('')
-  const [produtos, setProdutos]   = useState([])
-  const [loadingP, setLoadingP]   = useState(false)
-  const [salvando, setSalvando]   = useState({})
+  const [busca, setBusca]       = useState('')
+  const [produtos, setProdutos] = useState([])
+  const [loadingP, setLoadingP] = useState(false)
+  const [salvando, setSalvando] = useState({})
+
+  // Pagamentos
+  const [cfgPag, setCfgPag]       = useState({ provider_modo: 'auto', limite_efi: 80 })
+  const [salvandoCfg, setSalvandoCfg] = useState(false)
+  const [cfgSalva, setCfgSalva]   = useState(false)
 
   function verificarPin(e) {
     e.preventDefault()
@@ -48,6 +53,13 @@ export function AdminPanel({ onClose }) {
   useEffect(() => {
     if (!autenticado) return
     supabase.from('unidades').select('*').order('nome').then(({ data }) => setUnidades(data || []))
+  }, [autenticado])
+
+  // Carregar config de pagamento
+  useEffect(() => {
+    if (!autenticado) return
+    supabase.from('config_pagamento').select('provider_modo, limite_efi').eq('id', 1).single()
+      .then(({ data }) => { if (data) setCfgPag(data) })
   }, [autenticado])
 
   // Buscar produtos para destaque
@@ -100,7 +112,22 @@ export function AdminPanel({ onClose }) {
   function vincularUnidade(u) {
     localStorage.setItem('pdv_unidade', JSON.stringify(u))
     setUnidadeAtual(u)
-    window.location.reload() // recarrega para App pegar a unidade
+    window.location.reload()
+  }
+
+  async function salvarConfigPagamento(e) {
+    e.preventDefault()
+    setSalvandoCfg(true)
+    await supabase.from('config_pagamento')
+      .update({
+        provider_modo: cfgPag.provider_modo,
+        limite_efi   : Number(cfgPag.limite_efi),
+        updated_at   : new Date().toISOString(),
+      })
+      .eq('id', 1)
+    setSalvandoCfg(false)
+    setCfgSalva(true)
+    setTimeout(() => setCfgSalva(false), 2500)
   }
 
   // ── PIN ──────────────────────────────────────────────────────────────────
@@ -138,10 +165,14 @@ export function AdminPanel({ onClose }) {
       </div>
 
       {/* Abas */}
-      <div className="flex border-b border-vallen-border">
-        {[['unidade','🏪 Unidades'],['destaque','⭐ Destaques']].map(([id, label]) => (
+      <div className="flex border-b border-vallen-border overflow-x-auto">
+        {[
+          ['unidade',  '🏪 Unidades'],
+          ['destaque', '⭐ Destaques'],
+          ['pagamento','💳 Pagamentos'],
+        ].map(([id, label]) => (
           <button key={id} onClick={() => setAba(id)}
-            className={`flex-1 py-3 text-sm font-medium transition-colors
+            className={`flex-1 min-w-max py-3 px-4 text-sm font-medium transition-colors whitespace-nowrap
               ${aba === id ? 'text-vallen-green border-b-2 border-vallen-green' : 'text-vallen-muted hover:text-vallen-white'}`}>
             {label}
           </button>
@@ -255,12 +286,124 @@ export function AdminPanel({ onClose }) {
             </div>
           </div>
         )}
+
+        {/* ── ABA: PAGAMENTOS ── */}
+        {aba === 'pagamento' && (
+          <div className="max-w-lg mx-auto space-y-6">
+
+            {/* Status atual */}
+            <div className="bg-vallen-card border border-vallen-border rounded-xl p-4 space-y-1">
+              <p className="text-xs text-vallen-muted font-medium uppercase tracking-wide">Gateway ativo agora</p>
+              <GatewayAtivo cfg={cfgPag} />
+            </div>
+
+            <form onSubmit={salvarConfigPagamento} className="space-y-5">
+
+              {/* Modo */}
+              <div className="space-y-2">
+                <label className="text-sm font-semibold text-vallen-muted">Modo de seleção do gateway</label>
+                <div className="space-y-2">
+                  {[
+                    ['auto',  '🔀 Automático (EFI até limite, Asaas acima)'],
+                    ['efi',   '🟢 Sempre EFI Pay'],
+                    ['asaas', '🔵 Sempre Asaas'],
+                  ].map(([val, label]) => (
+                    <label key={val} className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors
+                      ${cfgPag.provider_modo === val
+                        ? 'border-vallen-green bg-vallen-green/10'
+                        : 'border-vallen-border bg-vallen-card hover:border-vallen-green/50'}`}>
+                      <input
+                        type="radio" name="provider_modo" value={val}
+                        checked={cfgPag.provider_modo === val}
+                        onChange={() => setCfgPag(c => ({ ...c, provider_modo: val }))}
+                        className="accent-vallen-green"
+                      />
+                      <span className="text-sm text-vallen-white">{label}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {/* Limite EFI (só aparece no modo auto) */}
+              {cfgPag.provider_modo === 'auto' && (
+                <div className="space-y-2">
+                  <label className="text-sm font-semibold text-vallen-muted">
+                    Limite para EFI Pay (R$)
+                  </label>
+                  <p className="text-xs text-vallen-gray">
+                    Pagamentos até este valor usam EFI Pay. Acima disso, usa Asaas.
+                  </p>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-vallen-muted text-sm">R$</span>
+                    <input
+                      type="number" min="1" max="9999" step="0.01"
+                      value={cfgPag.limite_efi}
+                      onChange={e => setCfgPag(c => ({ ...c, limite_efi: e.target.value }))}
+                      className="w-full bg-vallen-dark border border-vallen-border rounded-lg pl-10 pr-4 py-2.5 text-sm text-vallen-white focus:outline-none focus:border-vallen-green"
+                    />
+                  </div>
+                  <div className="flex gap-2 flex-wrap">
+                    {[50, 80, 100, 150, 200].map(v => (
+                      <button key={v} type="button"
+                        onClick={() => setCfgPag(c => ({ ...c, limite_efi: v }))}
+                        className={`px-3 py-1 rounded-lg text-xs transition-colors
+                          ${Number(cfgPag.limite_efi) === v
+                            ? 'bg-vallen-green text-white'
+                            : 'bg-vallen-border text-vallen-muted hover:text-vallen-white'}`}>
+                        R$ {v}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Info gateways */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="bg-vallen-dark border border-vallen-border rounded-lg p-3">
+                  <p className="text-xs font-bold text-green-400 mb-1">EFI Pay</p>
+                  <p className="text-xs text-vallen-muted">PIX dinâmico com certificado mTLS</p>
+                  <p className="text-xs text-vallen-gray mt-1">Sem taxa fixa por transação</p>
+                </div>
+                <div className="bg-vallen-dark border border-vallen-border rounded-lg p-3">
+                  <p className="text-xs font-bold text-blue-400 mb-1">Asaas</p>
+                  <p className="text-xs text-vallen-muted">PIX via API Asaas</p>
+                  <p className="text-xs text-vallen-gray mt-1">Fallback para valores altos</p>
+                </div>
+              </div>
+
+              <button type="submit" disabled={salvandoCfg}
+                className="w-full py-3 bg-vallen-green hover:bg-vallen-greenLight disabled:opacity-50 text-white font-bold rounded-lg text-sm transition-colors">
+                {salvandoCfg ? 'Salvando...' : cfgSalva ? '✓ Configuração salva!' : 'Salvar configuração'}
+              </button>
+            </form>
+          </div>
+        )}
+
       </div>
     </div>
   )
 }
 
-// Lista produtos em destaque
+// ── Sub-componentes ──────────────────────────────────────────────────────────
+
+function GatewayAtivo({ cfg }) {
+  if (cfg.provider_modo === 'efi') {
+    return <p className="text-base font-bold text-green-400">EFI Pay (sempre)</p>
+  }
+  if (cfg.provider_modo === 'asaas') {
+    return <p className="text-base font-bold text-blue-400">Asaas (sempre)</p>
+  }
+  return (
+    <div className="flex items-center gap-3 flex-wrap">
+      <span className="text-sm text-green-400 font-bold">EFI Pay</span>
+      <span className="text-xs text-vallen-muted">até R$ {Number(cfg.limite_efi).toFixed(2)}</span>
+      <span className="text-vallen-border">→</span>
+      <span className="text-sm text-blue-400 font-bold">Asaas</span>
+      <span className="text-xs text-vallen-muted">acima</span>
+    </div>
+  )
+}
+
 function DestaqueAtivos() {
   const [lista, setLista] = useState([])
   useEffect(() => {

@@ -1,8 +1,8 @@
 import { useEffect, useState, useRef } from 'react'
 import { QRCodeSVG } from 'qrcode.react'
 
-const EDGE_URL  = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/criar-link-cartao`
-const CHECK_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/verificar-cobranca-cartao`
+const EDGE_URL  = '/api/criar-pagamento'
+const CHECK_URL = '/api/verificar-cartao'
 const POLL_MS   = 4000
 const EXPIRA_EM = 10 * 60  // 10 minutos em segundos
 
@@ -24,11 +24,8 @@ export function CardModal({ items, total, unidadeId, onPaymentSuccess, onClose, 
       try {
         const res = await fetch(EDGE_URL, {
           method : 'POST',
-          headers: {
-            'Content-Type' : 'application/json',
-            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-          },
-          body: JSON.stringify({ items, total, unidadeId }),
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ items, total, unidadeId, tipo: 'cartao' }),
         })
         const data = await res.json()
         if (!res.ok || data.error) throw new Error(data.error || 'Erro ao gerar link')
@@ -69,10 +66,7 @@ export function CardModal({ items, total, unidadeId, onPaymentSuccess, onClose, 
       try {
         const res = await fetch(CHECK_URL, {
           method : 'POST',
-          headers: {
-            'Content-Type' : 'application/json',
-            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-          },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ pedidoId, chargeId }),
         })
         const data = await res.json()

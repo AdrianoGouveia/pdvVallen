@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react'
 import { QRCodeSVG } from 'qrcode.react'
 import { supabase } from '../lib/supabase'
 
-const EDGE_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/criar-cobranca-pix`
-const POLL_MS  = 3000 // checar pagamento a cada 3 segundos
+const EDGE_URL = '/api/criar-pagamento'
+const POLL_MS  = 3000
 
 export function PixModal({ items, total, unidadeId, onPaymentSuccess, onClose }) {
   const [fase, setFase]       = useState('criando')   // criando | aguardando | erro
@@ -19,11 +19,8 @@ export function PixModal({ items, total, unidadeId, onPaymentSuccess, onClose })
       try {
         const res = await fetch(EDGE_URL, {
           method : 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-          },
-          body: JSON.stringify({ items, total, unidadeId }),
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ items, total, unidadeId, tipo: 'pix' }),
         })
 
         const data = await res.json()

@@ -1,13 +1,14 @@
 // Vercel Serverless Function — Node.js (OpenSSL, tolerante ao TLS close_notify da EFI)
 import https from 'https'
+import { randomBytes } from 'crypto'
 import { createClient } from '@supabase/supabase-js'
 
 // ── Agentes HTTP ──────────────────────────────────────────────────────────────
 const certPem = Buffer.from(process.env.EFI_CERT_B64 ?? '', 'base64').toString()
 const keyPem  = Buffer.from(process.env.EFI_KEY_B64  ?? '', 'base64').toString()
 
-// Ambas as APIs EFI precisam de mTLS
-const efiAgent  = new https.Agent({ cert: certPem, key: keyPem })
+// Ambas as APIs EFI precisam de mTLS; rejectUnauthorized:false tolera a chain da EFI
+const efiAgent  = new https.Agent({ cert: certPem, key: keyPem, rejectUnauthorized: false })
 // Asaas usa HTTPS normal
 const plainAgent = new https.Agent()
 
@@ -54,7 +55,8 @@ async function getEfiPixToken() {
 
 async function criarCobPix(total, items, pedidoId) {
   const token = await getEfiPixToken()
-  const txid  = `PDV${pedidoId}T${Date.now()}`
+  // txid deve ter 26-35 chars alfanuméricos: ^[a-zA-Z0-9]{26,35}$
+  const txid  = randomBytes(16).toString('hex')  // 32 chars [0-9a-f] ✓
 
   const { ok: cobOk, data: cobData } = await req(
     'pix.api.efipay.com.br', `/v2/cob/${txid}`, 'PUT',

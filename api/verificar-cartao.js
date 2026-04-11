@@ -4,7 +4,7 @@ import { createClient } from '@supabase/supabase-js'
 
 const certPem = Buffer.from(process.env.EFI_CERT_B64 ?? '', 'base64').toString()
 const keyPem  = Buffer.from(process.env.EFI_KEY_B64  ?? '', 'base64').toString()
-const efiAgent = new https.Agent({ cert: certPem, key: keyPem })
+const efiAgent = new https.Agent({ cert: certPem, key: keyPem, rejectUnauthorized: false })
 
 function req(hostname, path, headers, agent) {
   return new Promise((resolve, reject) => {

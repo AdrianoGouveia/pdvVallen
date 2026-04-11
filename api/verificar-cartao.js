@@ -2,9 +2,7 @@
 import https from 'https'
 import { createClient } from '@supabase/supabase-js'
 
-const certPem = Buffer.from(process.env.EFI_CERT_B64 ?? '', 'base64').toString()
-const keyPem  = Buffer.from(process.env.EFI_KEY_B64  ?? '', 'base64').toString()
-const efiAgent = new https.Agent({ cert: certPem, key: keyPem, rejectUnauthorized: false })
+// Cobranças API não usa mTLS — agente padrão do Node.js é suficiente
 
 function req(hostname, path, headers, agent) {
   return new Promise((resolve, reject) => {
@@ -28,13 +26,13 @@ async function getToken() {
   return new Promise((resolve, reject) => {
     const r = https.request(
       {
-        hostname: 'cobrancas.api.efipay.com.br', path: '/oauth/token', method: 'POST',
+        hostname: 'cobrancas.api.efipay.com.br', path: '/v1/authorize', method: 'POST',
         headers: {
-          'Authorization': `Basic ${creds}`,
-          'Content-Type' : 'application/x-www-form-urlencoded',
+          'Authorization' : `Basic ${creds}`,
+          'Content-Type'  : 'application/x-www-form-urlencoded',
           'Content-Length': body.length,
         },
-        agent: efiAgent,
+        // Cobranças não usa mTLS
       },
       (res) => {
         const chunks = []
@@ -64,7 +62,6 @@ export default async function handler(request, res) {
       'cobrancas.api.efipay.com.br',
       `/v1/charge/${chargeId}`,
       { 'Authorization': `Bearer ${token}` },
-      efiAgent
     )
     if (!ok) throw new Error(`EFI status: ${JSON.stringify(data)}`)
 

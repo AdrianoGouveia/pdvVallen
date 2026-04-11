@@ -24,13 +24,15 @@ export function PixModal({ items, total, onPaymentSuccess, onClose }) {
     setError('')
 
     try {
-      // Baixa no estoque via RPC para cada item do carrinho
+      // Baixa no estoque — usa GREATEST(0, estoque - qtd) para nunca bloquear
+      // (produtos do mercado autônomo são repostos manualmente)
       for (const item of items) {
-        const { error: rpcError } = await supabase.rpc('baixar_estoque', {
-          p_produto_id: item.id,
-          p_quantidade: item.quantidade,
-        })
-        if (rpcError) throw new Error(`Estoque insuficiente: ${item.nome}`)
+        const novoEstoque = Math.max(0, (item.estoque ?? 0) - item.quantidade)
+        const { error: updErr } = await supabase
+          .from('produtos')
+          .update({ estoque: novoEstoque })
+          .eq('id', item.id)
+        if (updErr) throw new Error(`Erro ao atualizar estoque: ${item.nome}`)
       }
 
       // Registra o pedido

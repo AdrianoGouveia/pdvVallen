@@ -1,7 +1,7 @@
 import { CartItem } from './CartItem'
 
 export function Cart({ items, onIncrement, onDecrement, onRemove, onCheckout, ageBlocked }) {
-  const total = items.reduce((acc, i) => acc + i.preco * i.quantidade, 0)
+  const total   = items.reduce((acc, i) => acc + i.preco * i.quantidade, 0)
   const isEmpty = items.length === 0
 
   return (
@@ -9,11 +9,6 @@ export function Cart({ items, onIncrement, onDecrement, onRemove, onCheckout, ag
       {/* Header */}
       <div className="px-4 py-4 border-b border-vallen-border">
         <h2 className="text-lg font-semibold text-vallen-white">Carrinho</h2>
-        {ageBlocked && (
-          <p className="text-xs text-yellow-400 mt-1">
-            ⚠️ Verifique a idade para continuar
-          </p>
-        )}
       </div>
 
       {/* Items */}
@@ -46,26 +41,29 @@ export function Cart({ items, onIncrement, onDecrement, onRemove, onCheckout, ag
           </span>
         </div>
 
+        {/* Aviso de verificação de idade pendente */}
+        {ageBlocked && !isEmpty && (
+          <div className="bg-yellow-900/30 border border-yellow-700/50 rounded-lg px-3 py-2">
+            <p className="text-xs text-yellow-400 text-center">
+              🔞 Produto restrito — verifique a idade antes de pagar
+            </p>
+          </div>
+        )}
+
+        {/* Botão principal */}
         <button
           onClick={onCheckout}
-          disabled={isEmpty || ageBlocked}
+          disabled={isEmpty}
           className={`w-full py-3 rounded-lg font-bold text-base transition-colors
-            ${isEmpty || ageBlocked
+            ${isEmpty
               ? 'bg-vallen-border text-vallen-gray cursor-not-allowed'
-              : 'bg-vallen-green hover:bg-vallen-greenLight text-white'
+              : ageBlocked
+                ? 'bg-yellow-600 hover:bg-yellow-500 text-white'
+                : 'bg-vallen-green hover:bg-vallen-greenLight text-white'
             }`}
         >
-          {ageBlocked ? '🔒 Verificar Idade' : 'Pagar com PIX'}
+          {ageBlocked ? '🔞 Verificar Idade' : 'Pagar com PIX'}
         </button>
-
-        {ageBlocked && !isEmpty && (
-          <button
-            onClick={onCheckout}
-            className="w-full py-2 rounded-lg font-semibold text-sm bg-yellow-600 hover:bg-yellow-500 text-white"
-          >
-            Verificar Idade Agora
-          </button>
-        )}
       </div>
     </div>
   )

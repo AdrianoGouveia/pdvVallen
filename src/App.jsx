@@ -180,7 +180,7 @@ export default function App() {
           onVerified={() => {
             setAgeVerified(true)
             setShowAgeModal(false)
-            setShowPixModal(true)
+            // Apenas libera o carrinho — cliente decide quando pagar
           }}
           onClose={() => setShowAgeModal(false)}
         />

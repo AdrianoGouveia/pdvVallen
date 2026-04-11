@@ -88,12 +88,16 @@ async function criarCobPix(total, items, pedidoId) {
 // ── EFI Cartão ────────────────────────────────────────────────────────────────
 async function getEfiCartoToken() {
   const creds = Buffer.from(`${process.env.EFI_CLIENT_ID}:${process.env.EFI_CLIENT_SECRET}`).toString('base64')
+  // Tentativa: credenciais no body E no header, mTLS ativo (alguns endpoints EFI exigem)
   const { ok, data } = await req(
     'cobrancas.api.efipay.com.br', '/oauth/token', 'POST',
-    // EFI Charges NÃO usa mTLS (só PIX usa certificado)
     { 'Authorization': `Basic ${creds}`, 'Content-Type': 'application/json' },
-    { grant_type: 'client_credentials' },
-    plainAgent
+    {
+      grant_type   : 'client_credentials',
+      client_id    : process.env.EFI_CLIENT_ID,
+      client_secret: process.env.EFI_CLIENT_SECRET,
+    },
+    efiAgent   // mTLS ativo — testar se o OAuth de cobranças também exige
   )
   if (!ok || !data.access_token) throw new Error(`EFI Cartão auth: ${JSON.stringify(data)}`)
   return data.access_token

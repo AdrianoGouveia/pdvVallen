@@ -45,10 +45,13 @@ export function SupportCall({ onClose }) {
       width     : '100%',
       height    : '100%',
       configOverwrite: {
-        startWithAudioMuted: false,
-        startWithVideoMuted: false,
-        disableDeepLinking : true,
-        prejoinPageEnabled : false,
+        startWithAudioMuted : false,
+        startWithVideoMuted : false,
+        disableDeepLinking  : true,
+        // Desabilitar tela de pré-entrada (compatível com versões antigas e novas)
+        prejoinPageEnabled  : false,
+        prejoinConfig       : { enabled: false },
+        disableInitialGUM   : false,
       },
       interfaceConfigOverwrite: {
         SHOW_JITSI_WATERMARK    : false,

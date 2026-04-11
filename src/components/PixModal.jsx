@@ -6,66 +6,81 @@ import { supabase } from '../lib/supabase'
 export function PixModal({ items, total, onPaymentSuccess, onClose }) {
   const [loading, setLoading] = useState(false)
   const [error, setError]     = useState('')
+  const [copied, setCopied]   = useState(false)
 
   const txId = useMemo(() =>
     'VALLEN' + Date.now().toString().slice(-8),
   [])
 
-  const payload = useMemo(() => gerarPixPayload({
-    chave:  import.meta.env.VITE_PIX_CHAVE  || 'mercado@vallen.com.br',
-    nome:   import.meta.env.VITE_PIX_NOME   || 'Mercado Vallen',
-    cidade: import.meta.env.VITE_PIX_CIDADE || 'SAO PAULO',
-    valor:  total,
-    txId,
-  }), [total, txId])
+  // Gerar payload com tratamento de erro visível
+  const { payload, payloadError } = useMemo(() => {
+    try {
+      const chave  = import.meta.env.VITE_PIX_CHAVE  || '62984827766'
+      const nome   = import.meta.env.VITE_PIX_NOME   || 'Mercado Vallen'
+      const cidade = import.meta.env.VITE_PIX_CIDADE || 'SAO PAULO'
+
+      if (!total || total <= 0) throw new Error('Valor inválido: R$ ' + total)
+
+      const p = gerarPixPayload({ chave, nome, cidade, valor: total, txId })
+      return { payload: p, payloadError: null }
+    } catch (e) {
+      return { payload: null, payloadError: e.message }
+    }
+  }, [total, txId])
 
   async function handleSimularPagamento() {
     setLoading(true)
     setError('')
-
     try {
-      // Baixa no estoque — usa GREATEST(0, estoque - qtd) para nunca bloquear
-      // (produtos do mercado autônomo são repostos manualmente)
+      // Baixa no estoque — GREATEST(0,...) evita erro quando estoque=0
       for (const item of items) {
         const novoEstoque = Math.max(0, (item.estoque ?? 0) - item.quantidade)
         const { error: updErr } = await supabase
           .from('produtos')
           .update({ estoque: novoEstoque })
           .eq('id', item.id)
-        if (updErr) throw new Error(`Erro ao atualizar estoque: ${item.nome}`)
+        if (updErr) throw new Error(`Estoque (${item.nome}): ${updErr.message}`)
       }
 
-      // Registra o pedido
-      const { data: pedido, error: pedidoError } = await supabase
+      // Registra pedido
+      const { data: pedido, error: pedidoErr } = await supabase
         .from('pedidos')
         .insert({ total })
-        .select()
+        .select('id')
         .single()
-      if (pedidoError) throw pedidoError
+      if (pedidoErr) throw new Error(`Pedido: ${pedidoErr.message}`)
 
-      // Registra os itens
-      const itensPedido = items.map(i => ({
-        pedido_id:      pedido.id,
-        produto_id:     i.id,
-        quantidade:     i.quantidade,
-        preco_unitario: i.preco,
-      }))
-      const { error: itensError } = await supabase
+      // Registra itens
+      const { error: itensErr } = await supabase
         .from('itens_pedido')
-        .insert(itensPedido)
-      if (itensError) throw itensError
+        .insert(items.map(i => ({
+          pedido_id     : pedido.id,
+          produto_id    : i.id,
+          quantidade    : i.quantidade,
+          preco_unitario: i.preco,
+        })))
+      if (itensErr) throw new Error(`Itens: ${itensErr.message}`)
 
       onPaymentSuccess()
     } catch (err) {
-      setError(err.message || 'Erro ao processar pagamento.')
+      setError(err.message || 'Erro desconhecido')
     } finally {
       setLoading(false)
     }
   }
 
+  function handleCopiar() {
+    if (!payload) return
+    navigator.clipboard.writeText(payload).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    })
+  }
+
   return (
     <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4">
       <div className="bg-vallen-card border border-vallen-border rounded-xl w-full max-w-md p-6 shadow-2xl">
+
         {/* Header */}
         <div className="text-center mb-5">
           <img
@@ -74,58 +89,64 @@ export function PixModal({ items, total, onPaymentSuccess, onClose }) {
             className="h-8 w-auto object-contain mx-auto mb-3"
           />
           <h2 className="text-xl font-bold text-vallen-white">Pagamento via PIX</h2>
-          <p className="text-sm text-vallen-muted mt-1">
-            Abra seu banco e escaneie o QR Code
-          </p>
+          <p className="text-sm text-vallen-muted mt-1">Abra seu banco e escaneie o QR Code</p>
         </div>
 
-        {/* QR Code */}
+        {/* QR Code ou erro de geração */}
         <div className="flex justify-center mb-4">
-          <div className="bg-white p-3 rounded-xl">
-            <QRCodeSVG
-              value={payload}
-              size={200}
-              bgColor="#ffffff"
-              fgColor="#000000"
-              level="M"
-            />
-          </div>
+          {payloadError ? (
+            <div className="bg-red-900/30 border border-red-700 rounded-xl p-4 text-center w-full">
+              <p className="text-red-400 text-sm font-medium">Erro ao gerar QR Code:</p>
+              <p className="text-red-300 text-xs mt-1 font-mono break-all">{payloadError}</p>
+            </div>
+          ) : (
+            <div className="bg-white p-3 rounded-xl">
+              <QRCodeSVG
+                value={payload}
+                size={200}
+                bgColor="#ffffff"
+                fgColor="#000000"
+                level="M"
+              />
+            </div>
+          )}
         </div>
 
         {/* Total */}
         <div className="text-center mb-4">
-          <p className="text-3xl font-bold text-vallen-green">
-            R$ {total.toFixed(2)}
-          </p>
-          <p className="text-xs text-vallen-muted mt-1 font-mono break-all px-2">
-            {txId}
-          </p>
+          <p className="text-3xl font-bold text-vallen-green">R$ {total.toFixed(2)}</p>
+          <p className="text-xs text-vallen-muted mt-1 font-mono">{txId}</p>
         </div>
 
         {/* Copia e Cola */}
-        <button
-          onClick={() => navigator.clipboard.writeText(payload)}
-          className="w-full py-2 mb-3 rounded-lg border border-vallen-border text-vallen-muted hover:text-vallen-white text-sm"
-        >
-          Copiar código PIX
-        </button>
+        {payload && (
+          <button
+            onClick={handleCopiar}
+            className="w-full py-2 mb-3 rounded-lg border border-vallen-border text-vallen-muted hover:text-vallen-white text-sm transition-colors"
+          >
+            {copied ? '✓ Código copiado!' : 'Copiar código PIX'}
+          </button>
+        )}
 
+        {/* Erro do pagamento */}
         {error && (
-          <p className="text-red-400 text-sm text-center mb-2">{error}</p>
+          <div className="bg-red-900/30 border border-red-700 rounded-lg p-3 mb-3">
+            <p className="text-red-400 text-xs text-center font-mono break-all">{error}</p>
+          </div>
         )}
 
         {/* Simular pagamento */}
         <button
           onClick={handleSimularPagamento}
           disabled={loading}
-          className="w-full py-3 bg-vallen-green hover:bg-vallen-greenLight text-white font-bold rounded-lg disabled:opacity-50 mb-2"
+          className="w-full py-3 bg-vallen-green hover:bg-vallen-greenLight text-white font-bold rounded-lg disabled:opacity-50 mb-2 transition-colors"
         >
           {loading ? 'Processando...' : '✓ Simular Pagamento Aprovado'}
         </button>
 
         <button
           onClick={onClose}
-          className="w-full py-2 text-sm text-vallen-muted hover:text-vallen-white"
+          className="w-full py-2 text-sm text-vallen-muted hover:text-vallen-white transition-colors"
         >
           Cancelar
         </button>

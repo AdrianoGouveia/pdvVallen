@@ -9,11 +9,11 @@ import { Pedidos }      from './pages/Pedidos.jsx'
 const ADMIN_PASS = import.meta.env.VITE_ADMIN_PASS || 'vallen2024'
 
 const NAV = [
-  { to: 'condominios', label: 'Condomínios', icon: '🏢' },
-  { to: 'produtos',    label: 'Produtos',    icon: '📦' },
-  { to: 'estoque',     label: 'Estoque',     icon: '📊' },
-  { to: 'clientes',    label: 'Clientes',    icon: '👥' },
-  { to: 'pedidos',     label: 'Pedidos',     icon: '🧾' },
+  { to: '/admin/condominios', label: 'Condomínios', icon: '🏢' },
+  { to: '/admin/produtos',    label: 'Produtos',    icon: '📦' },
+  { to: '/admin/estoque',     label: 'Estoque',     icon: '📊' },
+  { to: '/admin/clientes',    label: 'Clientes',    icon: '👥' },
+  { to: '/admin/pedidos',     label: 'Pedidos',     icon: '🧾' },
 ]
 
 function Login({ onLogin }) {

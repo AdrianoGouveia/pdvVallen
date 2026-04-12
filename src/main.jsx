@@ -4,8 +4,9 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import './index.css'
 import App from './App.jsx'
 
-const AdminApp = lazy(() => import('./admin/AdminApp.jsx'))
-const MesaApp  = lazy(() => import('./mesa/MesaApp.jsx'))
+const AdminApp      = lazy(() => import('./admin/AdminApp.jsx'))
+const MesaApp       = lazy(() => import('./mesa/MesaApp.jsx'))
+const ReposicaoApp  = lazy(() => import('./reposicao/ReposicaoApp.jsx'))
 
 const Spinner = () => (
   <div className="flex items-center justify-center h-screen bg-vallen-dark">
@@ -18,9 +19,10 @@ createRoot(document.getElementById('root')).render(
     <BrowserRouter>
       <Suspense fallback={<Spinner />}>
         <Routes>
-          <Route path="/"           element={<App />} />
+          <Route path="/"            element={<App />} />
           <Route path="/admin/*"    element={<AdminApp />} />
           <Route path="/mesa/:id"   element={<MesaApp />} />
+          <Route path="/reposicao"  element={<ReposicaoApp />} />
           <Route path="*"           element={<App />} />
         </Routes>
       </Suspense>

@@ -13,8 +13,13 @@ export default function ScannerReposicao({ ctx, onProduto, onVoltar }) {
   const [loading, setLoading]       = useState(false)
   const [erro, setErro]             = useState('')
   const [scanAtivo, setScanAtivo]   = useState(true)
-  const scannerRef  = useRef(null)
-  const buscandoRef = useRef(false)   // guard: evita disparos duplos do scanner
+  const scannerRef   = useRef(null)
+  const buscandoRef  = useRef(false)   // guard: evita disparos duplos do scanner
+  const onProdutoRef = useRef(onProduto)
+  const ctxRef       = useRef(ctx)
+  // Mantém refs sempre atualizados para evitar closures desatualizadas
+  useEffect(() => { onProdutoRef.current = onProduto }, [onProduto])
+  useEffect(() => { ctxRef.current = ctx }, [ctx])
 
   const historico = JSON.parse(localStorage.getItem(HIST_KEY) || '[]')
 
@@ -28,14 +33,12 @@ export default function ScannerReposicao({ ctx, onProduto, onVoltar }) {
     scanner.start(
       { facingMode: 'environment' },
       { fps: 12, qrbox: { width: 280, height: 170 } },
-      async (codigo) => {
+      (codigo) => {
         if (buscandoRef.current) return   // guard: descarta disparos duplos
         buscandoRef.current = true
-        try {
-          await scanner.stop()
-        } catch { /* ignora */ }
+        scanner.stop().catch(() => {})    // NÃO aguarda — stop() pode travar no mobile
         setScanAtivo(false)
-        await buscarProduto(codigo.trim())
+        buscarProduto(codigo.trim())      // dispara sem await, erros tratados internamente
       },
       () => {} // ignora erros de frame (sem QR visível)
     ).catch(err => {
@@ -67,12 +70,12 @@ export default function ScannerReposicao({ ctx, onProduto, onVoltar }) {
 
       const { data: estoqueItem } = await supabase
         .from('estoque').select('*')
-        .eq('unidade_id', ctx.condominio.id)
+        .eq('unidade_id', ctxRef.current.condominio.id)
         .eq('produto_id', produto.id)
         .maybeSingle()
 
       setLoading(false)
-      onProduto({ produto, estoqueItem })
+      onProdutoRef.current({ produto, estoqueItem })
     } catch (err) {
       console.error('buscarProduto:', err)
       setErro('Erro ao buscar produto. Tente novamente.')

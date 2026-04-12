@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { tocarSucessoPagamento } from './utils/audio.js'
 import { CadastroModal } from './components/CadastroModal.jsx'
 import { LojaMesa }      from './components/LojaMesa.jsx'
 import { Scanner }       from './components/Scanner.jsx'
@@ -11,10 +12,11 @@ import { SucessoMesa }   from './components/SucessoMesa.jsx'
 // tela: loja | scanner | carrinho | pix | maquininha | sucesso
 export default function MesaApp() {
   const { id } = useParams()
-  const [unidade, setUnidade] = useState(null)
-  const [cart, setCart]       = useState([])
-  const [tela, setTela]       = useState('loja')
-  const [pedidoId, setPedidoId] = useState(null)
+  const [unidade, setUnidade]   = useState(null)
+  const [cart, setCart]         = useState([])
+  const [tela, setTela]         = useState('loja')
+  const [totalFinal, setTotalFinal] = useState(0) // capturado antes de limpar o cart
+  const [salvandoMaq, setSalvandoMaq] = useState(false)
 
   const [cliente, setCliente] = useState(() => {
     try { return JSON.parse(localStorage.getItem('mesa_cliente') || 'null') } catch { return null }
@@ -40,19 +42,41 @@ export default function MesaApp() {
   function resetar() {
     setCart([])
     setTela('loja')
-    setPedidoId(null)
+    setTotalFinal(0)
   }
 
-  const titulos = {
-    loja:       'Produtos',
-    scanner:    'Escanear',
-    carrinho:   'Carrinho',
-    pix:        'Pagar com PIX',
-    maquininha: 'Maquininha',
+  // Chamado pelo PIX após confirmação
+  function handlePixSucesso(pid) {
+    setTotalFinal(total)
+    setCart([])
+    setTela('sucesso')
+  }
+
+  // Maquininha: cria pedido pendente no Supabase e vai para sucesso
+  async function confirmarMaquininha() {
+    const totalAtual = total
+    setSalvandoMaq(true)
+    try {
+      await supabase.from('pedidos').insert({
+        total: totalAtual,
+        status: 'aguardando',
+        provider: 'maquininha',
+        unidade_id: unidade?.id ?? null,
+      })
+      // Baixar estoque
+      for (const item of cart) {
+        await supabase.rpc('decrementar_estoque', { produto_id: item.id, qtd: item.quantidade })
+      }
+    } catch (_) {}
+    tocarSucessoPagamento()
+    setTotalFinal(totalAtual)
+    setCart([])
+    setSalvandoMaq(false)
+    setTela('sucesso')
   }
 
   if (tela === 'sucesso') return (
-    <SucessoMesa total={total} cliente={cliente} onDone={resetar} />
+    <SucessoMesa total={totalFinal} cliente={cliente} onDone={resetar} />
   )
 
   return (
@@ -65,8 +89,12 @@ export default function MesaApp() {
         <div className="flex items-center gap-3">
           {tela !== 'loja' && (
             <button
-              onClick={() => setTela(tela === 'scanner' ? 'loja' : tela === 'carrinho' ? 'scanner' : tela === 'pix' || tela === 'maquininha' ? 'carrinho' : 'loja')}
-              className="text-vallen-muted hover:text-vallen-white"
+              onClick={() => setTela(
+                tela === 'scanner'    ? 'loja'     :
+                tela === 'carrinho'   ? 'scanner'  :
+                tela === 'pix' || tela === 'maquininha' ? 'carrinho' : 'loja'
+              )}
+              className="text-vallen-muted hover:text-vallen-white text-xl px-1"
             >
               ←
             </button>
@@ -129,7 +157,7 @@ export default function MesaApp() {
           cart={cart}
           total={total}
           unidadeId={unidade?.id}
-          onSuccess={(pid) => { setPedidoId(pid); setTela('sucesso') }}
+          onSuccess={handlePixSucesso}
           onVoltar={() => setTela('carrinho')}
         />
       )}
@@ -146,9 +174,10 @@ export default function MesaApp() {
             Use a maquininha de cartão disponível na mesa.<br />Crédito, débito ou contactless.
           </p>
           <button
-            onClick={() => { setCart([]); setTela('sucesso') }}
-            className="w-full max-w-xs py-4 bg-vallen-green hover:bg-vallen-greenLight text-white font-bold rounded-2xl text-lg transition-colors">
-            ✓ Pagamento confirmado
+            onClick={confirmarMaquininha}
+            disabled={salvandoMaq}
+            className="w-full max-w-xs py-4 bg-vallen-green hover:bg-vallen-greenLight disabled:opacity-60 text-white font-bold rounded-2xl text-lg transition-colors">
+            {salvandoMaq ? 'Registrando...' : '✓ Já paguei na maquininha'}
           </button>
           <button onClick={() => setTela('carrinho')}
             className="text-sm text-vallen-muted hover:text-vallen-white">

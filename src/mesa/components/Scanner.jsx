@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { BrowserMultiFormatReader } from '@zxing/browser'
 import { supabase } from '../../lib/supabase'
+import { desbloquearAudio, tocarSucesso, tocarErro } from '../utils/audio.js'
 
 export function Scanner({ onScan, cart, setCart, onFinalizar, onVoltar }) {
   const videoRef  = useRef(null)
@@ -14,6 +15,9 @@ export function Scanner({ onScan, cart, setCart, onFinalizar, onVoltar }) {
   const total = cart.reduce((a, i) => a + i.preco * i.quantidade, 0)
 
   useEffect(() => {
+    // Desbloqueia áudio ao entrar na tela do scanner
+    desbloquearAudio()
+
     const reader = new BrowserMultiFormatReader()
     readerRef.current = reader
 
@@ -43,11 +47,12 @@ export function Scanner({ onScan, cart, setCart, onFinalizar, onVoltar }) {
       .single()
 
     if (!data) {
+      tocarErro()
       setFeedback({ tipo: 'err', msg: 'Produto não encontrado' })
     } else {
+      tocarSucesso()
       onScan(data)
       setFeedback({ tipo: 'ok', msg: `+ ${data.nome}` })
-      tocarBeep()
     }
     setTimeout(() => setFeedback(null), 2000)
   }
@@ -63,49 +68,47 @@ export function Scanner({ onScan, cart, setCart, onFinalizar, onVoltar }) {
   function dec(id) { setCart(p => p.map(i => i.id === id ? { ...i, quantidade: i.quantidade - 1 } : i).filter(i => i.quantidade > 0)) }
 
   return (
-    <div className="flex-1 flex flex-col overflow-hidden">
+    <div className="flex-1 flex flex-col overflow-hidden" onTouchStart={desbloquearAudio}>
 
       {/* Scanner quadrado */}
-      <div className="relative bg-black flex-shrink-0" style={{ paddingTop: '75vw', maxHeight: '65vw' }}>
-        <div className="absolute inset-0">
-          <video ref={videoRef} className="w-full h-full object-cover" muted playsInline />
+      <div className="relative bg-black flex-shrink-0" style={{ aspectRatio: '4/3', maxHeight: '60vw' }}>
+        <video ref={videoRef} className="absolute inset-0 w-full h-full object-cover" muted playsInline />
 
-          {loading && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center bg-black gap-3">
-              <div className="w-10 h-10 border-4 border-vallen-green border-t-transparent rounded-full animate-spin" />
-              <p className="text-white/60 text-sm">Iniciando câmera...</p>
-            </div>
-          )}
+        {loading && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-black gap-3">
+            <div className="w-10 h-10 border-4 border-vallen-green border-t-transparent rounded-full animate-spin" />
+            <p className="text-white/60 text-sm">Iniciando câmera...</p>
+          </div>
+        )}
 
-          {semCamera && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/90 gap-3 p-4">
-              <div className="text-5xl">📷</div>
-              <p className="text-white text-center text-sm">Câmera indisponível.<br/>Use o campo abaixo.</p>
-            </div>
-          )}
+        {semCamera && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/90 gap-3 p-4">
+            <div className="text-5xl">📷</div>
+            <p className="text-white text-center text-sm">Câmera indisponível.<br/>Use o campo abaixo.</p>
+          </div>
+        )}
 
-          {/* Mira com cantos */}
-          {!loading && !semCamera && (
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-              <div className="relative w-48 h-32">
-                <span className="absolute top-0 left-0 w-6 h-6 border-t-4 border-l-4 border-vallen-green rounded-tl-md" />
-                <span className="absolute top-0 right-0 w-6 h-6 border-t-4 border-r-4 border-vallen-green rounded-tr-md" />
-                <span className="absolute bottom-0 left-0 w-6 h-6 border-b-4 border-l-4 border-vallen-green rounded-bl-md" />
-                <span className="absolute bottom-0 right-0 w-6 h-6 border-b-4 border-r-4 border-vallen-green rounded-br-md" />
-                <div className="absolute left-2 right-2 h-0.5 bg-vallen-green/80 animate-scan" style={{ top: '50%' }} />
-              </div>
+        {/* Mira com cantos */}
+        {!loading && !semCamera && (
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <div className="relative w-48 h-32">
+              <span className="absolute top-0 left-0 w-6 h-6 border-t-4 border-l-4 border-vallen-green rounded-tl-md" />
+              <span className="absolute top-0 right-0 w-6 h-6 border-t-4 border-r-4 border-vallen-green rounded-tr-md" />
+              <span className="absolute bottom-0 left-0 w-6 h-6 border-b-4 border-l-4 border-vallen-green rounded-bl-md" />
+              <span className="absolute bottom-0 right-0 w-6 h-6 border-b-4 border-r-4 border-vallen-green rounded-br-md" />
+              <div className="absolute left-2 right-2 h-0.5 bg-vallen-green/80 animate-scan" style={{ top: '50%' }} />
             </div>
-          )}
+          </div>
+        )}
 
-          {/* Feedback sobreposto */}
-          {feedback && (
-            <div className={`absolute bottom-2 left-2 right-2 rounded-xl px-4 py-2.5 flex items-center gap-2
-              ${feedback.tipo === 'ok' ? 'bg-vallen-green' : 'bg-red-600'}`}>
-              <span className="text-xl">{feedback.tipo === 'ok' ? '✅' : '❌'}</span>
-              <p className="text-white font-semibold text-sm truncate">{feedback.msg}</p>
-            </div>
-          )}
-        </div>
+        {/* Feedback sobreposto */}
+        {feedback && (
+          <div className={`absolute bottom-2 left-2 right-2 rounded-xl px-4 py-2.5 flex items-center gap-2
+            ${feedback.tipo === 'ok' ? 'bg-vallen-green' : 'bg-red-600'}`}>
+            <span className="text-xl">{feedback.tipo === 'ok' ? '✅' : '❌'}</span>
+            <p className="text-white font-semibold text-sm truncate">{feedback.msg}</p>
+          </div>
+        )}
       </div>
 
       {/* Input manual */}
@@ -114,7 +117,7 @@ export function Scanner({ onScan, cart, setCart, onFinalizar, onVoltar }) {
         <input
           value={manual}
           onChange={e => setManual(e.target.value)}
-          placeholder="Digitar código..."
+          placeholder="Digitar código manualmente..."
           inputMode="numeric"
           className="flex-1 bg-vallen-dark border border-vallen-border rounded-xl px-3 py-2.5 text-sm text-vallen-white focus:outline-none focus:border-vallen-green"
         />
@@ -124,7 +127,7 @@ export function Scanner({ onScan, cart, setCart, onFinalizar, onVoltar }) {
         </button>
       </form>
 
-      {/* Lista de itens escaneados */}
+      {/* Lista de itens */}
       <div className="flex-1 overflow-y-auto">
         {cart.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full gap-2 text-vallen-gray">
@@ -141,12 +144,12 @@ export function Scanner({ onScan, cart, setCart, onFinalizar, onVoltar }) {
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0">
                   <button onClick={() => dec(item.id)}
-                    className="w-7 h-7 rounded-full bg-vallen-dark border border-vallen-border text-vallen-white font-bold flex items-center justify-center text-base">
+                    className="w-7 h-7 rounded-full bg-vallen-dark border border-vallen-border text-vallen-white font-bold flex items-center justify-center">
                     −
                   </button>
                   <span className="w-5 text-center text-vallen-white font-bold text-sm">{item.quantidade}</span>
                   <button onClick={() => inc(item.id)}
-                    className="w-7 h-7 rounded-full bg-vallen-green text-white font-bold flex items-center justify-center text-base">
+                    className="w-7 h-7 rounded-full bg-vallen-green text-white font-bold flex items-center justify-center">
                     +
                   </button>
                 </div>
@@ -159,7 +162,7 @@ export function Scanner({ onScan, cart, setCart, onFinalizar, onVoltar }) {
         )}
       </div>
 
-      {/* Rodapé com total */}
+      {/* Rodapé */}
       <div className="bg-vallen-black border-t border-vallen-border px-4 py-3 space-y-2 flex-shrink-0">
         <div className="flex justify-between items-center">
           <span className="text-vallen-muted text-sm">{cart.reduce((a, i) => a + i.quantidade, 0)} itens</span>
@@ -173,24 +176,11 @@ export function Scanner({ onScan, cart, setCart, onFinalizar, onVoltar }) {
           <button
             onClick={onFinalizar}
             disabled={cart.length === 0}
-            className="flex-1 py-3 bg-vallen-green hover:bg-vallen-greenLight disabled:opacity-40 text-white font-bold rounded-xl text-sm transition-colors"
-          >
+            className="flex-1 py-3 bg-vallen-green hover:bg-vallen-greenLight disabled:opacity-40 text-white font-bold rounded-xl text-sm transition-colors">
             Finalizar compra →
           </button>
         </div>
       </div>
     </div>
   )
-}
-
-function tocarBeep() {
-  try {
-    const ctx = new (window.AudioContext || window.webkitAudioContext)()
-    const o = ctx.createOscillator(), g = ctx.createGain()
-    o.connect(g); g.connect(ctx.destination)
-    o.type = 'sine'; o.frequency.value = 880
-    g.gain.setValueAtTime(0.3, ctx.currentTime)
-    g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15)
-    o.start(ctx.currentTime); o.stop(ctx.currentTime + 0.15)
-  } catch (_) {}
 }

@@ -1,26 +1,11 @@
 import { useEffect, useState } from 'react'
-
-function tocarSom() {
-  try {
-    const ctx = new (window.AudioContext || window.webkitAudioContext)()
-    ;[523.25, 659.25, 783.99, 1046.5].forEach((freq, i) => {
-      const o = ctx.createOscillator(), g = ctx.createGain()
-      o.connect(g); g.connect(ctx.destination)
-      o.type = 'sine'; o.frequency.value = freq
-      const t = ctx.currentTime + i * 0.15
-      g.gain.setValueAtTime(0, t)
-      g.gain.linearRampToValueAtTime(0.3, t + 0.05)
-      g.gain.linearRampToValueAtTime(0, t + 0.25)
-      o.start(t); o.stop(t + 0.3)
-    })
-  } catch (_) {}
-}
+import { tocarSucessoPagamento } from '../utils/audio.js'
 
 export function SucessoMesa({ total, onDone, cliente }) {
   const [contador, setContador] = useState(8)
 
   useEffect(() => {
-    tocarSom()
+    tocarSucessoPagamento()
     const tick = setInterval(() => setContador(c => c - 1), 1000)
     const fim  = setTimeout(onDone, 8000)
     return () => { clearInterval(tick); clearTimeout(fim) }

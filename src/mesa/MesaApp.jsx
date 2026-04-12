@@ -14,8 +14,12 @@ export default function MesaApp() {
   const { id } = useParams()
   const [unidade, setUnidade]       = useState(null)
   const [cart, setCart]             = useState([])
-  const [tela, setTela]             = useState('loja')
-  const [totalFinal, setTotalFinal] = useState(0)
+  const [tela, setTela]             = useState(() => {
+    try { return JSON.parse(sessionStorage.getItem('mesa_sucesso') || 'null')?.tela ?? 'loja' } catch { return 'loja' }
+  })
+  const [totalFinal, setTotalFinal] = useState(() => {
+    try { return JSON.parse(sessionStorage.getItem('mesa_sucesso') || 'null')?.totalFinal ?? 0 } catch { return 0 }
+  })
   const [salvandoMaq, setSalvandoMaq] = useState(false)
 
   const [cliente, setCliente] = useState(() => {
@@ -40,13 +44,16 @@ export default function MesaApp() {
   const total = cart.reduce((a, i) => a + i.preco * i.quantidade, 0)
 
   function resetar() {
+    sessionStorage.removeItem('mesa_sucesso')
     setCart([])
     setTela('loja')
     setTotalFinal(0)
   }
 
   function handlePixSucesso() {
-    setTotalFinal(total)
+    const t = total
+    sessionStorage.setItem('mesa_sucesso', JSON.stringify({ tela: 'sucesso', totalFinal: t }))
+    setTotalFinal(t)
     setCart([])
     setTela('sucesso')
   }
@@ -67,6 +74,7 @@ export default function MesaApp() {
       }
     } catch (_) {}
     tocarSucessoPagamento()
+    sessionStorage.setItem('mesa_sucesso', JSON.stringify({ tela: 'sucesso', totalFinal: totalAtual }))
     setTotalFinal(totalAtual)
     setCart([])
     setSalvandoMaq(false)

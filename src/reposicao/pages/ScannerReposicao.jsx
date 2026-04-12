@@ -25,20 +25,27 @@ export default function ScannerReposicao({ ctx, onProduto, onVoltar }) {
     const reader = new BrowserMultiFormatReader()
     readerRef.current = reader
 
+    const onDecode = (result) => {
+      if (!result) return
+      const codigo = result.getText()
+      if (codigo === lastRef.current) return   // mesmo código, ignora
+      lastRef.current = codigo
+      setTimeout(() => { lastRef.current = '' }, 2500)
+      buscarProduto(codigo.trim())
+    }
+
+    // Tenta câmera traseira; se falhar, tenta qualquer câmera
     reader.decodeFromConstraints(
-      { video: { facingMode: 'environment' } },
+      { video: { facingMode: { ideal: 'environment' } } },
       videoRef.current,
-      (result) => {
-        if (!result) return
-        const codigo = result.getText()
-        if (codigo === lastRef.current) return   // mesmo código, ignora
-        lastRef.current = codigo
-        setTimeout(() => { lastRef.current = '' }, 2500)
-        buscarProduto(codigo.trim())
-      }
+      onDecode
     )
       .then(() => setLoadingCam(false))
-      .catch(() => { setLoadingCam(false); setSemCamera(true) })
+      .catch(() =>
+        reader.decodeFromConstraints({ video: true }, videoRef.current, onDecode)
+          .then(() => setLoadingCam(false))
+          .catch(() => { setLoadingCam(false); setSemCamera(true) })
+      )
 
     return () => { try { reader.reset() } catch (_) {} }
   }, [])
@@ -111,7 +118,7 @@ export default function ScannerReposicao({ ctx, onProduto, onVoltar }) {
       {/* ── Câmera ── */}
       <div className="relative bg-zinc-950 border-b border-zinc-800"
         style={{ aspectRatio: '4/3', maxHeight: '60vw' }}>
-        <video ref={videoRef} className="absolute inset-0 w-full h-full object-cover" muted playsInline />
+        <video ref={videoRef} className="absolute inset-0 w-full h-full object-cover" muted playsInline autoPlay />
 
         {loadingCam && (
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-zinc-950 gap-3">

@@ -21,20 +21,27 @@ export function Scanner({ onScan, cart, setCart, onFinalizar, onVoltar }) {
     const reader = new BrowserMultiFormatReader()
     readerRef.current = reader
 
+    const onDecode = (result) => {
+      if (!result) return
+      const code = result.getText()
+      if (code === lastRef.current) return
+      lastRef.current = code
+      setTimeout(() => { lastRef.current = '' }, 2500)
+      buscarProduto(code)
+    }
+
+    // Tenta câmera traseira; se falhar, tenta qualquer câmera
     reader.decodeFromConstraints(
-      { video: { facingMode: 'environment' } },
+      { video: { facingMode: { ideal: 'environment' } } },
       videoRef.current,
-      (result) => {
-        if (!result) return
-        const code = result.getText()
-        if (code === lastRef.current) return
-        lastRef.current = code
-        setTimeout(() => { lastRef.current = '' }, 2500)
-        buscarProduto(code)
-      }
+      onDecode
     )
       .then(() => setLoading(false))
-      .catch(() => { setLoading(false); setSemCamera(true) })
+      .catch(() =>
+        reader.decodeFromConstraints({ video: true }, videoRef.current, onDecode)
+          .then(() => setLoading(false))
+          .catch(() => { setLoading(false); setSemCamera(true) })
+      )
 
     return () => { try { reader.reset() } catch (_) {} }
   }, [])
@@ -72,7 +79,7 @@ export function Scanner({ onScan, cart, setCart, onFinalizar, onVoltar }) {
 
       {/* Scanner quadrado */}
       <div className="relative bg-black flex-shrink-0" style={{ aspectRatio: '4/3', maxHeight: '60vw' }}>
-        <video ref={videoRef} className="absolute inset-0 w-full h-full object-cover" muted playsInline />
+        <video ref={videoRef} className="absolute inset-0 w-full h-full object-cover" muted playsInline autoPlay />
 
         {loading && (
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-black gap-3">

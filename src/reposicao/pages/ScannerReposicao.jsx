@@ -5,6 +5,11 @@ import { LogoVR }       from '../components/Logo.jsx'
 
 const HIST_KEY = 'vr_historico'
 
+// Persiste entre montagens para evitar re-leitura imediata ao voltar do formulário
+let _lastCode = ''
+let _lastTs   = 0
+const DEBOUNCE_MS = 4000   // ignora o mesmo código por 4s
+
 export default function ScannerReposicao({ ctx, onProduto, onVoltar }) {
   const [manual, setManual]         = useState('')
   const [busca, setBusca]           = useState('')
@@ -16,7 +21,6 @@ export default function ScannerReposicao({ ctx, onProduto, onVoltar }) {
   const [loadingCam, setLoadingCam] = useState(true)
   const videoRef  = useRef(null)
   const readerRef = useRef(null)
-  const lastRef   = useRef('')        // guard: evita disparos duplos do mesmo código
 
   const historico = JSON.parse(localStorage.getItem(HIST_KEY) || '[]')
 
@@ -28,9 +32,11 @@ export default function ScannerReposicao({ ctx, onProduto, onVoltar }) {
     const onDecode = (result) => {
       if (!result) return
       const codigo = result.getText()
-      if (codigo === lastRef.current) return   // mesmo código, ignora
-      lastRef.current = codigo
-      setTimeout(() => { lastRef.current = '' }, 2500)
+      const now = Date.now()
+      // ignora o mesmo código lido recentemente (mesmo após remontar o componente)
+      if (codigo === _lastCode && now - _lastTs < DEBOUNCE_MS) return
+      _lastCode = codigo
+      _lastTs   = now
       buscarProduto(codigo.trim())
     }
 

@@ -5,11 +5,13 @@ import { Produtos }     from './pages/Produtos.jsx'
 import { Estoque }      from './pages/Estoque.jsx'
 import { Clientes }     from './pages/Clientes.jsx'
 import { Pedidos }      from './pages/Pedidos.jsx'
+import { Categorias }   from './pages/Categorias.jsx'
 
 const ADMIN_PASS = import.meta.env.VITE_ADMIN_PASS || 'vallen2024'
 
 const NAV = [
   { to: '/admin/condominios', label: 'Condomínios', icon: '🏢' },
+  { to: '/admin/categorias',  label: 'Categorias',  icon: '🏷️' },
   { to: '/admin/produtos',    label: 'Produtos',    icon: '📦' },
   { to: '/admin/estoque',     label: 'Estoque',     icon: '📊' },
   { to: '/admin/clientes',    label: 'Clientes',    icon: '👥' },
@@ -83,6 +85,7 @@ export default function AdminApp() {
         <Routes>
           <Route index element={<Navigate to="condominios" replace />} />
           <Route path="condominios" element={<Condominios />} />
+          <Route path="categorias"  element={<Categorias />} />
           <Route path="produtos"    element={<Produtos />} />
           <Route path="estoque"     element={<Estoque />} />
           <Route path="clientes"    element={<Clientes />} />

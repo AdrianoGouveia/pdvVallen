@@ -17,6 +17,7 @@ export function Produtos() {
   const [saving, setSaving] = useState(false)
   const [page, setPage]     = useState(0)
   const [categorias, setCats] = useState([])
+  const [novaCat, setNovaCat] = useState(false)
   const PAGE = 50
 
   async function load(termo = busca, pg = page) {
@@ -88,7 +89,7 @@ export function Produtos() {
   return (
     <div>
       <PageHeader title="Produtos"
-        action={<Btn onClick={() => { setForm(empty); setModal('new') }}>+ Novo</Btn>} />
+        action={<Btn onClick={() => { setForm(empty); setNovaCat(false); setModal('new') }}>+ Novo</Btn>} />
 
       <div className="px-6 py-4">
         <input value={busca} onChange={e => { setBusca(e.target.value); setPage(0); load(e.target.value, 0) }}
@@ -132,7 +133,7 @@ export function Produtos() {
                     {p.destaque && <span className="text-xs bg-vallen-green/20 text-vallen-green px-1.5 py-0.5 rounded">⭐</span>}
                   </td>
                   <td className="px-4 py-2">
-                    <Btn variant="ghost" onClick={() => { setForm({ ...p, preco_custo: p.preco_custo ?? '', markup: p.markup ?? '' }); setModal('edit') }}>Editar</Btn>
+                    <Btn variant="ghost" onClick={() => { setForm({ ...p, preco_custo: p.preco_custo ?? '', markup: p.markup ?? '' }); setNovaCat(false); setModal('edit') }}>Editar</Btn>
                   </td>
                 </tr>
               ))}
@@ -191,19 +192,25 @@ export function Produtos() {
             </div>
 
             <Field label="Categoria">
-              <select className={inputCls} value={form._catMode || form.categoria || ''}
-                onChange={e => {
-                  if (e.target.value === '__nova__') setForm(p => ({ ...p, _catMode: '__nova__', categoria: '' }))
-                  else setForm(p => ({ ...p, _catMode: undefined, categoria: e.target.value }))
-                }}>
-                <option value="">— Selecione —</option>
-                {categorias.map(c => <option key={c} value={c}>{c}</option>)}
-                <option value="__nova__">+ Digitar nova categoria...</option>
-              </select>
-              {form._catMode === '__nova__' && (
-                <input autoFocus className={inputCls + ' mt-2'} placeholder="Nome da nova categoria"
+              {!novaCat ? (
+                <select className={inputCls}
                   value={form.categoria || ''}
-                  onChange={e => setForm(p => ({ ...p, categoria: e.target.value }))} />
+                  onChange={e => {
+                    if (e.target.value === '__nova__') { setNovaCat(true); setForm(p => ({ ...p, categoria: '' })) }
+                    else setForm(p => ({ ...p, categoria: e.target.value }))
+                  }}>
+                  <option value="">— Selecione —</option>
+                  {categorias.map(c => <option key={c} value={c}>{c}</option>)}
+                  <option value="__nova__">+ Nova categoria...</option>
+                </select>
+              ) : (
+                <div className="flex gap-2">
+                  <input autoFocus className={inputCls + ' flex-1'} placeholder="Nome da nova categoria"
+                    value={form.categoria || ''}
+                    onChange={e => setForm(p => ({ ...p, categoria: e.target.value.toUpperCase() }))} />
+                  <button type="button" onClick={() => { setNovaCat(false); setForm(p => ({ ...p, categoria: '' })) }}
+                    className="text-vallen-muted hover:text-vallen-white text-sm px-2">✕</button>
+                </div>
               )}
             </Field>
             <Field label="URL da imagem">

@@ -404,7 +404,8 @@ function TabPendentes({ onPendentesChange }) {
   const [form, setForm]         = useState({})
   const [saving, setSaving]     = useState(false)
   const [categorias, setCats]   = useState([])
-  const [similares, setSimilares] = useState(null)  // produtos parecidos após salvar
+  const [similares, setSimilares] = useState(null)
+  const [novaCat, setNovaCat]   = useState(false)
 
   useEffect(() => {
     supabase.from('v_categorias').select('categoria').then(({ data }) =>
@@ -434,6 +435,7 @@ function TabPendentes({ onPendentesChange }) {
 
   function abrirCadastro(item) {
     setSimilares(null)
+    setNovaCat(false)
     setForm({
       codigo_barras : item.codigo,
       preco_custo   : item.preco_custo,
@@ -563,14 +565,25 @@ function TabPendentes({ onPendentesChange }) {
                 placeholder="Digite o nome após pesquisar no Bluesoft" />
             </Field>
             <Field label="Categoria">
-              <select className={inputCls} value={form.categoria} onChange={f('categoria')}>
-                <option value="">— Selecione —</option>
-                {categorias.map(c => <option key={c} value={c}>{c}</option>)}
-                <option value="__nova__">+ Digitar nova categoria...</option>
-              </select>
-              {form.categoria === '__nova__' && (
-                <input autoFocus className={inputCls + ' mt-2'} placeholder="Nome da nova categoria"
-                  onChange={e => setForm(p => ({ ...p, categoria: e.target.value }))} />
+              {!novaCat ? (
+                <select className={inputCls}
+                  value={form.categoria}
+                  onChange={e => {
+                    if (e.target.value === '__nova__') { setNovaCat(true); setForm(p => ({ ...p, categoria: '' })) }
+                    else setForm(p => ({ ...p, categoria: e.target.value }))
+                  }}>
+                  <option value="">— Selecione —</option>
+                  {categorias.map(c => <option key={c} value={c}>{c}</option>)}
+                  <option value="__nova__">+ Nova categoria...</option>
+                </select>
+              ) : (
+                <div className="flex gap-2">
+                  <input autoFocus className={inputCls + ' flex-1'} placeholder="Nome da nova categoria"
+                    value={form.categoria}
+                    onChange={e => setForm(p => ({ ...p, categoria: e.target.value.toUpperCase() }))} />
+                  <button type="button" onClick={() => { setNovaCat(false); setForm(p => ({ ...p, categoria: '' })) }}
+                    className="text-vallen-muted hover:text-vallen-white text-sm px-2">✕</button>
+                </div>
               )}
             </Field>
             <Field label="URL da imagem (foto do produto)">

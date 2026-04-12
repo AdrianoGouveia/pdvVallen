@@ -399,19 +399,41 @@ function TabImportar({ armazemId, onPendentesChange }) {
 
 // Tab 3: Produtos não cadastrados (pendentes de registro)
 function TabPendentes({ onPendentesChange }) {
-  const [lista, setLista]   = useState(() => JSON.parse(localStorage.getItem('estoque_pendentes') || '[]'))
-  const [modal, setModal]   = useState(null)   // item pendente sendo cadastrado
-  const [form, setForm]     = useState({})
-  const [saving, setSaving] = useState(false)
-  const [categorias, setCategorias] = useState([])
+  const [lista, setLista]       = useState(() => JSON.parse(localStorage.getItem('estoque_pendentes') || '[]'))
+  const [modal, setModal]       = useState(null)
+  const [form, setForm]         = useState({})
+  const [saving, setSaving]     = useState(false)
+  const [categorias, setCats]   = useState([])
+  const [similares, setSimilares] = useState(null)  // produtos parecidos após salvar
 
   useEffect(() => {
     supabase.from('v_categorias').select('categoria').then(({ data }) =>
-      setCategorias((data || []).map(r => r.categoria).filter(Boolean))
+      setCats((data || []).map(r => r.categoria).filter(Boolean))
     )
   }, [])
 
+  // Cálculo automático custo/markup/venda
+  function handleCusto(val) {
+    const custo = parseFloat(val) || 0
+    const markup = parseFloat(form.markup) || 0
+    const preco = markup && custo ? (custo * (1 + markup / 100)).toFixed(2) : form.preco
+    setForm(p => ({ ...p, preco_custo: val, preco }))
+  }
+  function handleMarkup(val) {
+    const markup = parseFloat(val) || 0
+    const custo = parseFloat(form.preco_custo) || 0
+    const preco = markup && custo ? (custo * (1 + markup / 100)).toFixed(2) : form.preco
+    setForm(p => ({ ...p, markup: val, preco }))
+  }
+  function handlePreco(val) {
+    const preco = parseFloat(val) || 0
+    const custo = parseFloat(form.preco_custo) || 0
+    const markup = preco && custo ? (((preco / custo) - 1) * 100).toFixed(2) : form.markup
+    setForm(p => ({ ...p, preco: val, markup }))
+  }
+
   function abrirCadastro(item) {
+    setSimilares(null)
     setForm({
       codigo_barras : item.codigo,
       preco_custo   : item.preco_custo,
@@ -421,6 +443,7 @@ function TabPendentes({ onPendentesChange }) {
       nome          : '',
       categoria     : '',
       unidade_medida: 'UN',
+      imagem_url    : '',
       restrito_idade: false,
     })
     setModal(item)
@@ -431,24 +454,36 @@ function TabPendentes({ onPendentesChange }) {
     setSaving(true)
     const { data: novoProd, error } = await supabase.from('produtos').insert({
       nome          : form.nome,
-      preco         : form.preco,
+      preco         : parseFloat(form.preco) || 0,
       codigo_barras : form.codigo_barras,
       categoria     : form.categoria || null,
-      unidade_medida: form.unidade_medida,
+      unidade_medida: form.unidade_medida || 'UN',
+      imagem_url    : form.imagem_url || null,
       restrito_idade: form.restrito_idade,
-      preco_custo   : form.preco_custo || null,
-      markup        : form.markup || null,
-    }).select('id').single()
+      preco_custo   : parseFloat(form.preco_custo) || null,
+      markup        : parseFloat(form.markup) || null,
+    }).select('id, nome').single()
 
     if (error) { setSaving(false); alert('Erro: ' + error.message); return }
 
-    // Remover da lista de pendentes
+    // Remover da pendentes
     const nova = lista.filter(i => i.codigo !== modal.codigo)
     localStorage.setItem('estoque_pendentes', JSON.stringify(nova))
     setLista(nova)
     onPendentesChange(nova.length)
     setSaving(false)
     setModal(null)
+
+    // Buscar produtos com nome parecido (possíveis duplicatas com código diferente)
+    const palavras = form.nome.split(/\s+/).filter(w => w.length > 3)
+    if (palavras.length) {
+      const { data: parecidos } = await supabase.from('produtos')
+        .select('id, nome, preco, codigo_barras')
+        .ilike('nome', `%${palavras[0]}%`)
+        .neq('id', novoProd.id)
+        .limit(10)
+      if (parecidos?.length) setSimilares({ novoProd, parecidos })
+    }
   }
 
   function remover(codigo) {
@@ -471,7 +506,8 @@ function TabPendentes({ onPendentesChange }) {
   return (
     <div className="px-6 py-4">
       <p className="text-sm text-vallen-muted mb-4">
-        {lista.length} produto(s) importados da NF mas não encontrados no sistema. Clique em cada um para cadastrar.
+        {lista.length} produto(s) importados da NF mas não encontrados no sistema.
+        Clique no código para pesquisar o produto ou em <strong className="text-vallen-white">Cadastrar</strong> para registrar.
       </p>
       <div className="bg-vallen-card border border-vallen-border rounded-xl overflow-hidden">
         <table className="w-full text-sm">
@@ -486,7 +522,16 @@ function TabPendentes({ onPendentesChange }) {
           <tbody>
             {lista.map(item => (
               <tr key={item.codigo} className="border-b border-vallen-border/50">
-                <td className="px-4 py-3 font-mono text-amber-400">{item.codigo}</td>
+                <td className="px-4 py-3">
+                  <a
+                    href={`https://cosmos.bluesoft.com.br/produtos/${item.codigo}`}
+                    target="_blank" rel="noopener noreferrer"
+                    className="font-mono text-amber-400 hover:text-amber-300 underline underline-offset-2 text-xs"
+                    title="Pesquisar produto no Bluesoft Cosmos"
+                  >
+                    {item.codigo} ↗
+                  </a>
+                </td>
                 <td className="px-4 py-3 text-vallen-white">{item.quantidade}</td>
                 <td className="px-4 py-3 text-vallen-muted">R$ {Number(item.preco_custo).toFixed(2)}</td>
                 <td className="px-4 py-3 text-vallen-muted">{Number(item.markup).toFixed(0)}%</td>
@@ -501,11 +546,21 @@ function TabPendentes({ onPendentesChange }) {
         </table>
       </div>
 
+      {/* Modal cadastro */}
       {modal && (
-        <Modal title={`Cadastrar produto — ${modal.codigo}`} onClose={() => setModal(null)}>
+        <Modal title={`Cadastrar produto`} onClose={() => setModal(null)}>
+          <div className="mb-3 p-2 bg-vallen-dark rounded-lg flex items-center gap-2">
+            <span className="text-xs text-vallen-muted">Código:</span>
+            <a href={`https://cosmos.bluesoft.com.br/produtos/${modal.codigo}`}
+              target="_blank" rel="noopener noreferrer"
+              className="font-mono text-amber-400 hover:text-amber-300 text-xs underline">
+              {modal.codigo} ↗ Pesquisar no Bluesoft
+            </a>
+          </div>
           <form onSubmit={salvar} className="space-y-3">
             <Field label="Nome do produto *">
-              <input required autoFocus className={inputCls} value={form.nome} onChange={f('nome')} />
+              <input required autoFocus className={inputCls} value={form.nome} onChange={f('nome')}
+                placeholder="Digite o nome após pesquisar no Bluesoft" />
             </Field>
             <Field label="Categoria">
               <input className={inputCls} value={form.categoria} onChange={f('categoria')}
@@ -514,32 +569,43 @@ function TabPendentes({ onPendentesChange }) {
                 {categorias.map(c => <option key={c} value={c} />)}
               </datalist>
             </Field>
+            <Field label="URL da imagem (foto do produto)">
+              <input className={inputCls} value={form.imagem_url} onChange={f('imagem_url')}
+                placeholder="https://..." />
+            </Field>
+
+            {/* Precificação */}
+            <div className="bg-vallen-dark/60 border border-vallen-border rounded-xl p-3 space-y-3">
+              <p className="text-xs text-vallen-muted font-medium uppercase">Precificação</p>
+              <div className="grid grid-cols-3 gap-3">
+                <Field label="Custo (R$)">
+                  <input type="number" step="0.01" min="0" className={inputCls}
+                    value={form.preco_custo} onChange={e => handleCusto(e.target.value)} />
+                </Field>
+                <Field label="Markup (%)">
+                  <input type="number" step="0.1" min="0" className={inputCls}
+                    value={form.markup} onChange={e => handleMarkup(e.target.value)} />
+                </Field>
+                <Field label="Preço venda *">
+                  <input required type="number" step="0.01" min="0" className={inputCls + ' border-vallen-green'}
+                    value={form.preco} onChange={e => handlePreco(e.target.value)} />
+                </Field>
+              </div>
+            </div>
+
             <div className="grid grid-cols-2 gap-3">
               <Field label="Unidade medida">
                 <select className={inputCls} value={form.unidade_medida} onChange={f('unidade_medida')}>
                   {['UN','KG','L','CX','PC','FD','DZ'].map(u => <option key={u}>{u}</option>)}
                 </select>
               </Field>
-              <Field label="Preço de venda *">
-                <input required type="number" step="0.01" min="0" className={inputCls}
-                  value={form.preco} onChange={f('preco')} />
-              </Field>
+              <label className="flex items-center gap-2 text-sm text-vallen-muted cursor-pointer mt-6">
+                <input type="checkbox" checked={form.restrito_idade} onChange={f('restrito_idade')}
+                  className="w-4 h-4 accent-yellow-500" />
+                Restrito +18
+              </label>
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <Field label="Preço de custo">
-                <input type="number" step="0.01" min="0" className={inputCls}
-                  value={form.preco_custo} onChange={f('preco_custo')} />
-              </Field>
-              <Field label="Markup (%)">
-                <input type="number" step="0.1" min="0" className={inputCls}
-                  value={form.markup} onChange={f('markup')} />
-              </Field>
-            </div>
-            <label className="flex items-center gap-2 text-sm text-vallen-muted cursor-pointer">
-              <input type="checkbox" checked={form.restrito_idade} onChange={f('restrito_idade')}
-                className="w-4 h-4 accent-vallen-green" />
-              Produto restrito +18 anos
-            </label>
+
             <div className="flex gap-3 pt-2">
               <Btn type="submit" disabled={saving}>{saving ? 'Salvando...' : 'Salvar produto'}</Btn>
               <Btn type="button" variant="ghost" onClick={() => setModal(null)}>Cancelar</Btn>
@@ -547,6 +613,52 @@ function TabPendentes({ onPendentesChange }) {
           </form>
         </Modal>
       )}
+
+      {/* Modal produtos similares */}
+      {similares && (
+        <Modal title="Produtos parecidos encontrados" onClose={() => setSimilares(null)}>
+          <p className="text-sm text-vallen-muted mb-4">
+            Existem produtos com nome parecido com <strong className="text-vallen-white">"{similares.novoProd.nome}"</strong>.
+            Podem ser o mesmo produto com código diferente. Deseja atualizar o preço de algum?
+          </p>
+          <div className="space-y-2">
+            {similares.parecidos.map(p => (
+              <SimilarItem key={p.id} produto={p} />
+            ))}
+          </div>
+          <div className="pt-4">
+            <Btn variant="ghost" onClick={() => setSimilares(null)}>Fechar</Btn>
+          </div>
+        </Modal>
+      )}
+    </div>
+  )
+}
+
+function SimilarItem({ produto }) {
+  const [preco, setPreco]   = useState(Number(produto.preco).toFixed(2))
+  const [saved, setSaved]   = useState(false)
+  const [saving, setSaving] = useState(false)
+
+  async function atualizar() {
+    setSaving(true)
+    await supabase.from('produtos').update({ preco: parseFloat(preco) }).eq('id', produto.id)
+    setSaving(false); setSaved(true)
+  }
+
+  return (
+    <div className="flex items-center gap-3 bg-vallen-dark rounded-lg px-3 py-2">
+      <div className="flex-1">
+        <p className="text-sm text-vallen-white">{produto.nome}</p>
+        <p className="text-xs text-vallen-muted font-mono">{produto.codigo_barras}</p>
+      </div>
+      <input type="number" step="0.01" min="0"
+        value={preco} onChange={e => setPreco(e.target.value)}
+        className="w-24 bg-vallen-card border border-vallen-border rounded px-2 py-1 text-sm text-vallen-green focus:outline-none focus:border-vallen-green" />
+      {saved
+        ? <span className="text-green-400 text-xs">✓</span>
+        : <Btn onClick={atualizar} disabled={saving}>{saving ? '...' : 'Atualizar'}</Btn>
+      }
     </div>
   )
 }

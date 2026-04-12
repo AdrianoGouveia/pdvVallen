@@ -13,7 +13,8 @@ export default function ScannerReposicao({ ctx, onProduto, onVoltar }) {
   const [loading, setLoading]       = useState(false)
   const [erro, setErro]             = useState('')
   const [scanAtivo, setScanAtivo]   = useState(true)
-  const scannerRef = useRef(null)
+  const scannerRef  = useRef(null)
+  const buscandoRef = useRef(false)   // guard: evita disparos duplos do scanner
 
   const historico = JSON.parse(localStorage.getItem(HIST_KEY) || '[]')
 
@@ -28,8 +29,11 @@ export default function ScannerReposicao({ ctx, onProduto, onVoltar }) {
       { facingMode: 'environment' },
       { fps: 12, qrbox: { width: 280, height: 170 } },
       async (codigo) => {
-        // Sucesso no scan
-        scanner.stop().catch(() => {})
+        if (buscandoRef.current) return   // guard: descarta disparos duplos
+        buscandoRef.current = true
+        try {
+          await scanner.stop()
+        } catch { /* ignora */ }
         setScanAtivo(false)
         await buscarProduto(codigo.trim())
       },
@@ -45,27 +49,37 @@ export default function ScannerReposicao({ ctx, onProduto, onVoltar }) {
   // ── Buscar produto por código ───────────────────────────────────────────────
   async function buscarProduto(codigo) {
     setErro(''); setLoading(true)
+    try {
+      const { data: produto, error: errP } = await supabase
+        .from('produtos').select('*')
+        .eq('codigo_barras', codigo)
+        .maybeSingle()
 
-    const { data: produto } = await supabase
-      .from('produtos').select('*')
-      .eq('codigo_barras', codigo)
-      .maybeSingle()
+      if (errP) throw errP
 
-    if (!produto) {
-      setErro(`Código "${codigo}" não cadastrado no sistema.`)
+      if (!produto) {
+        setErro(`Código "${codigo}" não cadastrado no sistema.`)
+        setLoading(false)
+        buscandoRef.current = false
+        setScanAtivo(true)
+        return
+      }
+
+      const { data: estoqueItem } = await supabase
+        .from('estoque').select('*')
+        .eq('unidade_id', ctx.condominio.id)
+        .eq('produto_id', produto.id)
+        .maybeSingle()
+
       setLoading(false)
+      onProduto({ produto, estoqueItem })
+    } catch (err) {
+      console.error('buscarProduto:', err)
+      setErro('Erro ao buscar produto. Tente novamente.')
+      setLoading(false)
+      buscandoRef.current = false
       setScanAtivo(true)
-      return
     }
-
-    const { data: estoqueItem } = await supabase
-      .from('estoque').select('*')
-      .eq('unidade_id', ctx.condominio.id)
-      .eq('produto_id', produto.id)
-      .maybeSingle()
-
-    setLoading(false)
-    onProduto({ produto, estoqueItem })
   }
 
   function handleManual(e) {

@@ -191,11 +191,20 @@ export function Produtos() {
             </div>
 
             <Field label="Categoria">
-              <input className={inputCls} value={form.categoria||''} onChange={f('categoria')}
-                list="cats-prod" placeholder="Ex: Bebidas, Snacks..." />
-              <datalist id="cats-prod">
-                {categorias.map(c => <option key={c} value={c} />)}
-              </datalist>
+              <select className={inputCls} value={form._catMode || form.categoria || ''}
+                onChange={e => {
+                  if (e.target.value === '__nova__') setForm(p => ({ ...p, _catMode: '__nova__', categoria: '' }))
+                  else setForm(p => ({ ...p, _catMode: undefined, categoria: e.target.value }))
+                }}>
+                <option value="">— Selecione —</option>
+                {categorias.map(c => <option key={c} value={c}>{c}</option>)}
+                <option value="__nova__">+ Digitar nova categoria...</option>
+              </select>
+              {form._catMode === '__nova__' && (
+                <input autoFocus className={inputCls + ' mt-2'} placeholder="Nome da nova categoria"
+                  value={form.categoria || ''}
+                  onChange={e => setForm(p => ({ ...p, categoria: e.target.value }))} />
+              )}
             </Field>
             <Field label="URL da imagem">
               <input className={inputCls} value={form.imagem_url||''} onChange={f('imagem_url')}

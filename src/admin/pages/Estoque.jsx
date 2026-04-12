@@ -563,11 +563,15 @@ function TabPendentes({ onPendentesChange }) {
                 placeholder="Digite o nome após pesquisar no Bluesoft" />
             </Field>
             <Field label="Categoria">
-              <input className={inputCls} value={form.categoria} onChange={f('categoria')}
-                list="cats-pendente" placeholder="Ex: Bebidas, Snacks..." />
-              <datalist id="cats-pendente">
-                {categorias.map(c => <option key={c} value={c} />)}
-              </datalist>
+              <select className={inputCls} value={form.categoria} onChange={f('categoria')}>
+                <option value="">— Selecione —</option>
+                {categorias.map(c => <option key={c} value={c}>{c}</option>)}
+                <option value="__nova__">+ Digitar nova categoria...</option>
+              </select>
+              {form.categoria === '__nova__' && (
+                <input autoFocus className={inputCls + ' mt-2'} placeholder="Nome da nova categoria"
+                  onChange={e => setForm(p => ({ ...p, categoria: e.target.value }))} />
+              )}
             </Field>
             <Field label="URL da imagem (foto do produto)">
               <input className={inputCls} value={form.imagem_url} onChange={f('imagem_url')}

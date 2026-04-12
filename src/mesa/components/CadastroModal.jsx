@@ -14,18 +14,23 @@ function parseDDMMAAAA(str) {
   return new Date(`${m[3]}-${m[2]}-${m[1]}`)
 }
 
+function calcularIs18(dataNasc) {
+  return (Date.now() - dataNasc.getTime()) / (1000 * 3600 * 24 * 365.25) >= 18
+}
+
 export function CadastroModal({ onConcluido }) {
-  const [form, setForm]   = useState({ nome: '', telefone: '', nascimento: '' })
-  const [erro, setErro]   = useState('')
+  const [form, setForm]     = useState({ nome: '', telefone: '', nascimento: '' })
+  const [erro, setErro]     = useState('')
+  const [aviso, setAviso]   = useState('') // mensagem amarela (não bloqueante)
   const [loading, setLoading] = useState(false)
 
   function set(campo, valor) {
-    setErro('')
+    setErro(''); setAviso('')
     setForm(f => ({ ...f, [campo]: valor }))
   }
 
   function handleNascimento(e) {
-    setErro('')
+    setErro(''); setAviso('')
     setForm(f => ({ ...f, nascimento: mascaraData(e.target.value) }))
   }
 
@@ -44,19 +49,35 @@ export function CadastroModal({ onConcluido }) {
       return
     }
 
-    const idade = (Date.now() - dataNasc.getTime()) / (1000 * 3600 * 24 * 365.25)
-    if (idade < 18) {
-      setErro('Você precisa ter 18 anos ou mais para continuar.')
-      return
-    }
-
+    const is18 = calcularIs18(dataNasc)
     const isoDate = `${nascimento.slice(6)}-${nascimento.slice(3,5)}-${nascimento.slice(0,2)}`
 
     setLoading(true)
+
+    // Verificar se telefone já está cadastrado
+    const { data: existente } = await supabase
+      .from('clientes')
+      .select('id, nome, telefone, data_nascimento')
+      .eq('telefone', telefone)
+      .maybeSingle()
+
+    if (existente) {
+      // Cadastro já existe — calcula is18 da data original e segue em frente
+      const dataNascExistente = new Date(existente.data_nascimento)
+      const is18Existente = calcularIs18(dataNascExistente)
+      const clienteData = { nome: existente.nome, telefone: existente.telefone, is18: is18Existente }
+      localStorage.setItem('mesa_cliente', JSON.stringify(clienteData))
+      setLoading(false)
+      onConcluido(clienteData)
+      return
+    }
+
+    // Novo cadastro — qualquer idade pode se cadastrar
     await supabase.from('clientes').insert({ nome, telefone, data_nascimento: isoDate })
-    localStorage.setItem('mesa_cliente', JSON.stringify({ nome, telefone, nascimento }))
+    const clienteData = { nome, telefone, is18 }
+    localStorage.setItem('mesa_cliente', JSON.stringify(clienteData))
     setLoading(false)
-    onConcluido({ nome, telefone })
+    onConcluido(clienteData)
   }
 
   return (
@@ -118,7 +139,7 @@ export function CadastroModal({ onConcluido }) {
             disabled={loading}
             className="w-full py-4 bg-vallen-green hover:bg-vallen-greenLight disabled:opacity-50 text-white font-bold rounded-xl text-base transition-colors"
           >
-            {loading ? 'Salvando...' : 'Confirmar e continuar'}
+            {loading ? 'Verificando...' : 'Confirmar e continuar'}
           </button>
         </form>
 

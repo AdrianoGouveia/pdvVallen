@@ -1,6 +1,7 @@
 export function CarrinhoMesa({ cart, setCart, onVoltar, onPix, onMaquininha, cliente }) {
   const total = cart.reduce((a, i) => a + i.preco * i.quantidade, 0)
   const temAlcool = cart.some(i => i.restrito_idade)
+  const bloqueadoPorIdade = temAlcool && cliente?.is18 === false
 
   function inc(id) {
     setCart(p => p.map(i => i.id === id ? { ...i, quantidade: i.quantidade + 1 } : i))
@@ -54,8 +55,16 @@ export function CarrinhoMesa({ cart, setCart, onVoltar, onPix, onMaquininha, cli
         ))}
       </div>
 
-      {/* Aviso álcool */}
-      {temAlcool && (
+      {/* Bloqueio menor de idade */}
+      {bloqueadoPorIdade && (
+        <div className="mx-4 mb-2 px-4 py-3 bg-red-900/30 border border-red-700/50 rounded-xl">
+          <p className="text-red-400 text-sm font-semibold">🚫 Venda não permitida</p>
+          <p className="text-red-300 text-xs mt-0.5">Seu carrinho contém produtos restritos para maiores de 18 anos. Remova esses itens para continuar.</p>
+        </div>
+      )}
+
+      {/* Aviso álcool (maior de idade) */}
+      {temAlcool && !bloqueadoPorIdade && (
         <div className="mx-4 mb-2 px-4 py-3 bg-amber-900/20 border border-amber-700/40 rounded-xl">
           <p className="text-amber-400 text-xs">⚠️ Seu carrinho contém bebida alcoólica. A venda é permitida apenas para maiores de 18 anos.</p>
         </div>
@@ -72,12 +81,14 @@ export function CarrinhoMesa({ cart, setCart, onVoltar, onPix, onMaquininha, cli
         </div>
 
         <button onClick={onPix}
-          className="w-full py-4 bg-vallen-green hover:bg-vallen-greenLight text-white font-bold rounded-2xl text-lg transition-colors flex items-center justify-center gap-2">
+          disabled={bloqueadoPorIdade}
+          className="w-full py-4 bg-vallen-green hover:bg-vallen-greenLight disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold rounded-2xl text-lg transition-colors flex items-center justify-center gap-2">
           <span className="text-xl">📱</span> Pagar com PIX
         </button>
 
         <button onClick={onMaquininha}
-          className="w-full py-3.5 bg-vallen-card border border-vallen-border hover:border-vallen-green text-vallen-white font-medium rounded-2xl transition-colors flex items-center justify-center gap-2">
+          disabled={bloqueadoPorIdade}
+          className="w-full py-3.5 bg-vallen-card border border-vallen-border hover:border-vallen-green disabled:opacity-40 disabled:cursor-not-allowed text-vallen-white font-medium rounded-2xl transition-colors flex items-center justify-center gap-2">
           <span>💳</span> Pagar na maquininha
         </button>
 

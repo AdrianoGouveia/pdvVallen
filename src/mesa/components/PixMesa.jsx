@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { QRCodeSVG } from 'qrcode.react'
 import { supabase } from '../../lib/supabase'
 
-export function PixMesa({ cart, total, unidadeId, onSuccess, onVoltar }) {
+export function PixMesa({ cart, total, unidadeId, clienteId, onSuccess, onVoltar }) {
   const [fase, setFase]       = useState('criando')
   const [qrCode, setQrCode]   = useState('')
   const [pedidoId, setPedidoId] = useState(null)
@@ -16,7 +16,7 @@ export function PixMesa({ cart, total, unidadeId, onSuccess, onVoltar }) {
     fetch('/api/criar-pagamento', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ items: cart, total, unidadeId, tipo: 'pix' }),
+      body: JSON.stringify({ items: cart, total, unidadeId, clienteId, tipo: 'pix' }),
     })
       .then(r => r.json())
       .then(data => {

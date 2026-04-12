@@ -168,7 +168,7 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'method not allowed' })
 
   try {
-    const { items, total, unidadeId, tipo } = req.body
+    const { items, total, unidadeId, clienteId, tipo } = req.body
     if (!total || total <= 0) throw new Error('Valor inválido')
 
     const supabase = createClient(
@@ -196,7 +196,8 @@ export default async function handler(req, res) {
       .from('pedidos')
       .insert({
         total, status: 'aguardando', provider,
-        ...(unidadeId ? { unidade_id: unidadeId } : {}),
+        ...(unidadeId  ? { unidade_id:  unidadeId  } : {}),
+        ...(clienteId  ? { cliente_id:  clienteId  } : {}),
       })
       .select('id').single()
     if (pedidoErr) throw new Error(`Pedido: ${pedidoErr.message}`)

@@ -4,7 +4,7 @@ import { PageHeader } from '../components/PageHeader.jsx'
 import { Modal } from '../components/Modal.jsx'
 import { Field, inputCls, Btn } from '../components/Field.jsx'
 
-const empty = { nome: '', codigo: '', endereco: '', cidade: '', cep: '', ativo: true }
+const empty = { nome: '', codigo: '', endereco: '', cidade: '', cep: '', whatsapp: '', ativo: true }
 
 export function Condominios() {
   const [lista, setLista]   = useState([])
@@ -22,7 +22,7 @@ export function Condominios() {
 
   async function salvar(e) {
     e.preventDefault(); setSaving(true)
-    const payload = { nome: form.nome, codigo: form.codigo, endereco: form.endereco, cidade: form.cidade, cep: form.cep, ativo: form.ativo }
+    const payload = { nome: form.nome, codigo: form.codigo, endereco: form.endereco, cidade: form.cidade, cep: form.cep, whatsapp: form.whatsapp || null, ativo: form.ativo }
     if (modal === 'new') await supabase.from('unidades').insert(payload)
     else await supabase.from('unidades').update(payload).eq('id', form.id)
     setSaving(false); setModal(null); load()
@@ -85,6 +85,10 @@ export function Condominios() {
               <Field label="Cidade"><input className={inputCls} value={form.cidade||''} onChange={f('cidade')} /></Field>
               <Field label="CEP"><input className={inputCls} value={form.cep||''} onChange={f('cep')} /></Field>
             </div>
+            <Field label="WhatsApp suporte (DDD + número)">
+              <input className={inputCls} value={form.whatsapp||''} onChange={f('whatsapp')}
+                placeholder="11987654321" inputMode="numeric" />
+            </Field>
             <div className="flex gap-3 pt-2">
               <Btn type="submit" disabled={saving}>{saving ? 'Salvando...' : 'Salvar'}</Btn>
               <Btn type="button" variant="ghost" onClick={() => setModal(null)}>Cancelar</Btn>

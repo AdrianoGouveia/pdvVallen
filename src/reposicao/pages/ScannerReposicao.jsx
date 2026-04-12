@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { Html5Qrcode }  from 'html5-qrcode'
+import { BrowserMultiFormatReader } from '@zxing/browser'
 import { supabase }     from '../../lib/supabase.js'
 import { LogoVR }       from '../components/Logo.jsx'
 
@@ -12,42 +12,36 @@ export default function ScannerReposicao({ ctx, onProduto, onVoltar }) {
   const [modalNome, setModalNome]   = useState(false)
   const [loading, setLoading]       = useState(false)
   const [erro, setErro]             = useState('')
-  const [scanAtivo, setScanAtivo]   = useState(true)
-  const scannerRef   = useRef(null)
-  const buscandoRef  = useRef(false)   // guard: evita disparos duplos do scanner
-  const onProdutoRef = useRef(onProduto)
-  const ctxRef       = useRef(ctx)
-  // Mantém refs sempre atualizados para evitar closures desatualizadas
-  useEffect(() => { onProdutoRef.current = onProduto }, [onProduto])
-  useEffect(() => { ctxRef.current = ctx }, [ctx])
+  const [semCamera, setSemCamera]   = useState(false)
+  const [loadingCam, setLoadingCam] = useState(true)
+  const videoRef  = useRef(null)
+  const readerRef = useRef(null)
+  const lastRef   = useRef('')        // guard: evita disparos duplos do mesmo código
 
   const historico = JSON.parse(localStorage.getItem(HIST_KEY) || '[]')
 
-  // ── Iniciar câmera ──────────────────────────────────────────────────────────
+  // ── Iniciar câmera com @zxing/browser ──────────────────────────────────────
   useEffect(() => {
-    if (!scanAtivo) return
+    const reader = new BrowserMultiFormatReader()
+    readerRef.current = reader
 
-    const scanner = new Html5Qrcode('qr-reader', { verbose: false })
-    scannerRef.current = scanner
+    reader.decodeFromConstraints(
+      { video: { facingMode: 'environment' } },
+      videoRef.current,
+      (result) => {
+        if (!result) return
+        const codigo = result.getText()
+        if (codigo === lastRef.current) return   // mesmo código, ignora
+        lastRef.current = codigo
+        setTimeout(() => { lastRef.current = '' }, 2500)
+        buscarProduto(codigo.trim())
+      }
+    )
+      .then(() => setLoadingCam(false))
+      .catch(() => { setLoadingCam(false); setSemCamera(true) })
 
-    scanner.start(
-      { facingMode: 'environment' },
-      { fps: 12, qrbox: { width: 280, height: 170 } },
-      (codigo) => {
-        if (buscandoRef.current) return   // guard: descarta disparos duplos
-        buscandoRef.current = true
-        scanner.stop().catch(() => {})    // NÃO aguarda — stop() pode travar no mobile
-        setScanAtivo(false)
-        buscarProduto(codigo.trim())      // dispara sem await, erros tratados internamente
-      },
-      () => {} // ignora erros de frame (sem QR visível)
-    ).catch(err => {
-      setErro('Câmera não disponível. Use o campo de texto abaixo.')
-      console.warn('html5-qrcode:', err)
-    })
-
-    return () => { scanner.stop().catch(() => {}); scanner.clear().catch(() => {}) }
-  }, [scanAtivo])
+    return () => { try { reader.reset() } catch (_) {} }
+  }, [])
 
   // ── Buscar produto por código ───────────────────────────────────────────────
   async function buscarProduto(codigo) {
@@ -63,34 +57,29 @@ export default function ScannerReposicao({ ctx, onProduto, onVoltar }) {
       if (!produto) {
         setErro(`Código "${codigo}" não cadastrado no sistema.`)
         setLoading(false)
-        buscandoRef.current = false
-        setScanAtivo(true)
         return
       }
 
       const { data: estoqueItem } = await supabase
         .from('estoque').select('*')
-        .eq('unidade_id', ctxRef.current.condominio.id)
+        .eq('unidade_id', ctx.condominio.id)
         .eq('produto_id', produto.id)
         .maybeSingle()
 
       setLoading(false)
-      onProdutoRef.current({ produto, estoqueItem })
+      onProduto({ produto, estoqueItem })
     } catch (err) {
       console.error('buscarProduto:', err)
       setErro('Erro ao buscar produto. Tente novamente.')
       setLoading(false)
-      buscandoRef.current = false
-      setScanAtivo(true)
     }
   }
 
   function handleManual(e) {
     e.preventDefault()
     if (!manual.trim()) return
-    scannerRef.current?.stop().catch(() => {})
-    setScanAtivo(false)
     buscarProduto(manual.trim())
+    setManual('')
   }
 
   async function buscarPorNome() {
@@ -101,12 +90,6 @@ export default function ScannerReposicao({ ctx, onProduto, onVoltar }) {
       .ilike('nome', `%${busca}%`).limit(25)
     setResultados(data || [])
     setLoading(false)
-  }
-
-  function reativarScanner() {
-    setErro('')
-    setManual('')
-    setScanAtivo(true)
   }
 
   return (
@@ -126,29 +109,46 @@ export default function ScannerReposicao({ ctx, onProduto, onVoltar }) {
       </header>
 
       {/* ── Câmera ── */}
-      <div className="relative bg-zinc-950 border-b border-zinc-800">
-        <div id="qr-reader" className="w-full" />
-        {/* Mira sobreposta */}
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-          <div className="relative w-64 h-36">
-            {/* Cantos rosa */}
-            {[
-              'top-0 left-0 border-t-2 border-l-2 rounded-tl-lg',
-              'top-0 right-0 border-t-2 border-r-2 rounded-tr-lg',
-              'bottom-0 left-0 border-b-2 border-l-2 rounded-bl-lg',
-              'bottom-0 right-0 border-b-2 border-r-2 rounded-br-lg',
-            ].map((cls, i) => (
-              <div key={i} className={`absolute w-6 h-6 border-pink-500 ${cls}`} />
-            ))}
-            {/* Linha de scan animada */}
-            <div className="absolute inset-x-2 top-1/2 h-0.5 bg-pink-500/70 rounded-full"
-              style={{ animation: 'scanLine 2s ease-in-out infinite' }} />
+      <div className="relative bg-zinc-950 border-b border-zinc-800"
+        style={{ aspectRatio: '4/3', maxHeight: '60vw' }}>
+        <video ref={videoRef} className="absolute inset-0 w-full h-full object-cover" muted playsInline />
+
+        {loadingCam && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-zinc-950 gap-3">
+            <div className="w-8 h-8 border-4 border-pink-500 border-t-transparent rounded-full animate-spin" />
+            <p className="text-zinc-500 text-sm">Iniciando câmera...</p>
           </div>
-        </div>
-        <p className="text-center text-xs text-zinc-600 py-2">
-          Aponte para o código de barras do produto
-        </p>
+        )}
+
+        {semCamera && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-zinc-950 gap-3 p-4">
+            <div className="text-5xl">📷</div>
+            <p className="text-zinc-400 text-center text-sm">Câmera indisponível.<br/>Use o campo abaixo.</p>
+          </div>
+        )}
+
+        {/* Mira sobreposta */}
+        {!loadingCam && !semCamera && (
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <div className="relative w-64 h-36">
+              {[
+                'top-0 left-0 border-t-2 border-l-2 rounded-tl-lg',
+                'top-0 right-0 border-t-2 border-r-2 rounded-tr-lg',
+                'bottom-0 left-0 border-b-2 border-l-2 rounded-bl-lg',
+                'bottom-0 right-0 border-b-2 border-r-2 rounded-br-lg',
+              ].map((cls, i) => (
+                <div key={i} className={`absolute w-6 h-6 border-pink-500 ${cls}`} />
+              ))}
+              <div className="absolute inset-x-2 top-1/2 h-0.5 bg-pink-500/70 rounded-full"
+                style={{ animation: 'scanLine 2s ease-in-out infinite' }} />
+            </div>
+          </div>
+        )}
       </div>
+
+      <p className="text-center text-xs text-zinc-600 py-2 bg-zinc-950">
+        Aponte para o código de barras do produto
+      </p>
 
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
 
@@ -156,9 +156,9 @@ export default function ScannerReposicao({ ctx, onProduto, onVoltar }) {
         {erro && (
           <div className="bg-red-950/80 border border-red-700/60 rounded-2xl px-4 py-3 flex items-center justify-between gap-3">
             <p className="text-red-300 text-sm flex-1">{erro}</p>
-            <button onClick={reativarScanner}
+            <button onClick={() => setErro('')}
               className="text-xs text-pink-400 hover:text-pink-300 font-bold whitespace-nowrap">
-              Tentar novamente
+              OK
             </button>
           </div>
         )}

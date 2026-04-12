@@ -23,6 +23,15 @@ export default {
       borderRadius: {
         DEFAULT: '8px',
       },
+      keyframes: {
+        scan: {
+          '0%, 100%': { transform: 'translateY(-80px)', opacity: '0.4' },
+          '50%':       { transform: 'translateY(80px)',  opacity: '0.9' },
+        },
+      },
+      animation: {
+        scan: 'scan 2s ease-in-out infinite',
+      },
     },
   },
   plugins: [],

@@ -1,18 +1,24 @@
 import { useState, useEffect } from 'react'
 import { useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
-import { Scanner }      from './components/Scanner.jsx'
-import { CarrinhoMesa } from './components/CarrinhoMesa.jsx'
-import { PixMesa }      from './components/PixMesa.jsx'
-import { SucessoMesa }  from './components/SucessoMesa.jsx'
+import { CadastroModal } from './components/CadastroModal.jsx'
+import { Scanner }       from './components/Scanner.jsx'
+import { CarrinhoMesa }  from './components/CarrinhoMesa.jsx'
+import { PixMesa }       from './components/PixMesa.jsx'
+import { SucessoMesa }   from './components/SucessoMesa.jsx'
 
 // tela: scanner | carrinho | pix | maquininha | sucesso
 export default function MesaApp() {
-  const { id }            = useParams()
+  const { id } = useParams()
   const [unidade, setUnidade] = useState(null)
-  const [cart, setCart]   = useState([])
-  const [tela, setTela]   = useState('scanner')
+  const [cart, setCart]       = useState([])
+  const [tela, setTela]       = useState('scanner')
   const [pedidoId, setPedidoId] = useState(null)
+
+  // Cadastro: carrega do localStorage ou pede no primeiro acesso
+  const [cliente, setCliente] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('mesa_cliente') || 'null') } catch { return null }
+  })
 
   useEffect(() => {
     supabase.from('unidades').select('*').eq('codigo', id).single()
@@ -31,18 +37,37 @@ export default function MesaApp() {
 
   const total = cart.reduce((a, i) => a + i.preco * i.quantidade, 0)
 
-  if (tela === 'sucesso') return <SucessoMesa total={total} onDone={() => { setCart([]); setTela('scanner') }} />
+  function resetar() {
+    setCart([])
+    setTela('scanner')
+    setPedidoId(null)
+  }
+
+  if (tela === 'sucesso') return (
+    <SucessoMesa total={total} cliente={cliente} onDone={resetar} />
+  )
 
   return (
     <div className="flex flex-col h-dvh bg-vallen-dark text-vallen-white">
+
+      {/* Modal de cadastro no primeiro acesso */}
+      {!cliente && <CadastroModal onConcluido={setCliente} />}
+
       {/* Header */}
       <header className="flex items-center justify-between px-4 py-3 bg-vallen-black border-b border-vallen-border flex-shrink-0">
-        <img src="https://d2xsxph8kpxj0f.cloudfront.net/310419663030100181/bfwXvEbkbq6M7kWytZDaKG/v3_logo_fundo_preto_85834ede.webp"
-          className="h-8" alt="Vallen" />
-        {unidade && <span className="text-xs text-vallen-muted border border-vallen-border rounded px-2 py-1">{unidade.nome}</span>}
+        <img
+          src="https://d2xsxph8kpxj0f.cloudfront.net/310419663030100181/bfwXvEbkbq6M7kWytZDaKG/v3_logo_fundo_preto_85834ede.webp"
+          className="h-8" alt="Vallen"
+        />
+        {unidade && (
+          <span className="text-xs text-vallen-muted border border-vallen-border rounded px-2 py-1">
+            {unidade.nome}
+          </span>
+        )}
         {cart.length > 0 && tela === 'scanner' && (
-          <button onClick={() => setTela('carrinho')}
-            className="flex items-center gap-1.5 bg-vallen-green text-white px-3 py-1.5 rounded-lg text-sm font-medium">
+          <button
+            onClick={() => setTela('carrinho')}
+            className="flex items-center gap-1.5 bg-vallen-green text-white px-3 py-2 rounded-xl text-sm font-bold">
             🛒 {cart.length} · R$ {total.toFixed(2)}
           </button>
         )}
@@ -50,40 +75,48 @@ export default function MesaApp() {
 
       {/* Telas */}
       {tela === 'scanner' && (
-        <Scanner unidadeId={unidade?.id} onScan={addItem} onCartPress={() => setTela('carrinho')} />
+        <Scanner unidadeId={unidade?.id} onScan={addItem} />
       )}
+
       {tela === 'carrinho' && (
         <CarrinhoMesa
-          cart={cart} setCart={setCart}
+          cart={cart}
+          setCart={setCart}
+          cliente={cliente}
           onVoltar={() => setTela('scanner')}
           onPix={() => setTela('pix')}
           onMaquininha={() => setTela('maquininha')}
         />
       )}
+
       {tela === 'pix' && (
         <PixMesa
-          cart={cart} total={total} unidadeId={unidade?.id}
+          cart={cart}
+          total={total}
+          unidadeId={unidade?.id}
           onSuccess={(pid) => { setPedidoId(pid); setTela('sucesso') }}
           onVoltar={() => setTela('carrinho')}
         />
       )}
+
       {tela === 'maquininha' && (
         <div className="flex-1 flex flex-col items-center justify-center p-8 gap-6">
           <div className="text-6xl">💳</div>
           <h2 className="text-2xl font-bold text-center">Pague na maquininha</h2>
-          <div className="bg-vallen-card border border-vallen-border rounded-2xl px-10 py-6 text-center">
+          <div className="bg-vallen-card border border-vallen-border rounded-2xl px-10 py-6 text-center w-full max-w-xs">
             <p className="text-sm text-vallen-muted mb-1">Valor total</p>
             <p className="text-5xl font-black text-vallen-green">R$ {total.toFixed(2)}</p>
           </div>
           <p className="text-vallen-muted text-center text-sm">
-            Use a maquininha de cartão disponível na mesa.<br/>Crédito, débito ou contactless.
+            Use a maquininha de cartão disponível na mesa.<br />Crédito, débito ou contactless.
           </p>
-          <button onClick={() => { setCart([]); setTela('sucesso') }}
-            className="w-full max-w-xs py-4 bg-vallen-green text-white font-bold rounded-xl text-lg">
-            Pagamento confirmado ✓
+          <button
+            onClick={() => { setCart([]); setTela('sucesso') }}
+            className="w-full max-w-xs py-4 bg-vallen-green hover:bg-vallen-greenLight text-white font-bold rounded-2xl text-lg transition-colors">
+            ✓ Pagamento confirmado
           </button>
           <button onClick={() => setTela('carrinho')}
-            className="text-sm text-vallen-muted hover:text-vallen-white">
+            className="text-sm text-vallen-muted hover:text-vallen-white transition-colors">
             ← Voltar
           </button>
         </div>

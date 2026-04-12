@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { supabase } from '../../lib/supabase'
 
-export function LojaMesa({ cart, onAddToCart, onIniciarScanner, onVerCarrinho }) {
+export function LojaMesa({ cart, onAddToCart, onIniciarScanner, onVerCarrinho, cliente }) {
   const [produtos, setProdutos]     = useState([])
   const [categorias, setCategorias] = useState([])
   const [loading, setLoading]       = useState(true)
@@ -50,6 +50,15 @@ export function LojaMesa({ cart, onAddToCart, onIniciarScanner, onVerCarrinho })
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
+
+      {/* Boas-vindas */}
+      {cliente?.nome && (
+        <div className="px-4 pt-4 pb-1">
+          <p className="text-vallen-muted text-sm">
+            Seja bem-vindo, <span className="text-vallen-white font-bold">{cliente.nome.split(' ')[0]}</span>! 👋
+          </p>
+        </div>
+      )}
 
       {/* Busca */}
       <div className="px-3 pt-3 pb-2 border-b border-vallen-border">

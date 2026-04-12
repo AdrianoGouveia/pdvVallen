@@ -27,8 +27,8 @@ function Login({ onLogin }) {
   return (
     <div className="flex items-center justify-center h-screen bg-vallen-dark">
       <form onSubmit={submit} className="bg-vallen-card border border-vallen-border rounded-xl p-8 w-80 space-y-4">
-        <img src="https://d2xsxph8kpxj0f.cloudfront.net/310419663030100181/bfwXvEbkbq6M7kWytZDaKG/v3_logo_fundo_preto_85834ede.webp"
-          className="h-10 mx-auto" alt="Vallen" />
+        <img src="/logo.png"
+          className="h-16 mx-auto" alt="Vallen" />
         <h2 className="text-center text-vallen-white font-bold text-lg">Painel Admin</h2>
         <input type="password" value={pass} onChange={e => { setPass(e.target.value); setErr(false) }}
           placeholder="Senha" autoFocus
@@ -55,8 +55,8 @@ export default function AdminApp() {
       {/* Sidebar */}
       <aside className="w-52 flex-shrink-0 bg-vallen-black border-r border-vallen-border flex flex-col">
         <div className="px-4 py-5 border-b border-vallen-border">
-          <img src="https://d2xsxph8kpxj0f.cloudfront.net/310419663030100181/bfwXvEbkbq6M7kWytZDaKG/v3_logo_fundo_preto_85834ede.webp"
-            className="h-8 w-auto" alt="Vallen" />
+          <img src="/logo.png"
+            className="h-14 w-auto" alt="Vallen" />
           <p className="text-xs text-vallen-muted mt-1">Painel Administrativo</p>
         </div>
         <nav className="flex-1 py-4 space-y-1 px-2">

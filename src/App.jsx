@@ -184,9 +184,9 @@ export default function App() {
       <header className="flex items-center justify-between px-5 py-3 bg-vallen-black border-b border-vallen-border flex-shrink-0">
         <div className="flex items-center gap-3">
           <img
-            src="https://d2xsxph8kpxj0f.cloudfront.net/310419663030100181/bfwXvEbkbq6M7kWytZDaKG/v3_logo_fundo_preto_85834ede.webp"
+            src="/logo.png"
             alt="Vallen Market"
-            className="h-14 w-auto object-contain cursor-pointer"
+            className="h-20 w-auto object-contain cursor-pointer"
             onClick={handleLogoTap}
             title="Toque 5x para admin"
           />

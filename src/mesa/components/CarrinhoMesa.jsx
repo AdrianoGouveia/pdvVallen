@@ -94,7 +94,7 @@ export function CarrinhoMesa({ cart, setCart, onVoltar, onPix, onMaquininha, cli
 
         <button onClick={onVoltar}
           className="w-full py-2 text-sm text-vallen-muted hover:text-vallen-white transition-colors">
-          ← Continuar escaneando
+          ← Continuar comprando
         </button>
       </div>
     </div>

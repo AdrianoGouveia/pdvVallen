@@ -4,22 +4,27 @@ import { PageHeader } from '../components/PageHeader.jsx'
 import { Field, inputCls } from '../components/Field.jsx'
 
 export function Clientes() {
-  const [lista, setLista]     = useState([])
+  const [lista, setLista]       = useState([])
   const [unidades, setUnidades] = useState([])
-  const [filtro, setFiltro]   = useState('')
-  const [unidade, setUnidade] = useState('')
+  const [filtro, setFiltro]     = useState('')
+  const [unidade, setUnidade]   = useState('')
 
   useEffect(() => {
     supabase.from('unidades').select('id,nome').order('nome').then(({ data }) => setUnidades(data || []))
   }, [])
 
   useEffect(() => {
-    let q = supabase.from('clientes').select('*, unidades(nome)').order('nome')
+    let q = supabase.from('clientes').select('*').order('created_at', { ascending: false })
     if (unidade) q = q.eq('unidade_id', unidade)
     q.then(({ data }) => setLista(data || []))
   }, [unidade])
 
-  const filtrado = lista.filter(c => !filtro || c.nome?.toLowerCase().includes(filtro.toLowerCase()) || c.cpf?.includes(filtro))
+  const filtrado = lista.filter(c =>
+    !filtro ||
+    c.nome?.toLowerCase().includes(filtro.toLowerCase()) ||
+    c.cpf?.includes(filtro) ||
+    c.telefone?.includes(filtro)
+  )
 
   function idade(dn) {
     if (!dn) return '—'
@@ -41,7 +46,7 @@ export function Clientes() {
         </Field>
         <Field label="Buscar">
           <input value={filtro} onChange={e => setFiltro(e.target.value)}
-            placeholder="Nome ou CPF..." className={inputCls + ' w-56'} />
+            placeholder="Nome, CPF ou telefone..." className={inputCls + ' w-56'} />
         </Field>
         <div className="flex items-end">
           <span className="text-sm text-vallen-muted">{filtrado.length} cliente(s)</span>
@@ -50,24 +55,41 @@ export function Clientes() {
       <div className="px-6 pb-6">
         <div className="bg-vallen-card border border-vallen-border rounded-xl overflow-hidden">
           <table className="w-full text-sm">
-            <thead><tr className="border-b border-vallen-border text-vallen-muted text-left">
-              <th className="px-4 py-3">Nome</th>
-              <th className="px-4 py-3">CPF</th>
-              <th className="px-4 py-3">Idade</th>
-              <th className="px-4 py-3">Condomínio</th>
-              <th className="px-4 py-3">Cadastro</th>
-            </tr></thead>
+            <thead>
+              <tr className="border-b border-vallen-border text-vallen-muted text-left">
+                <th className="px-4 py-3">Nome</th>
+                <th className="px-4 py-3">Telefone</th>
+                <th className="px-4 py-3">CPF</th>
+                <th className="px-4 py-3">Idade</th>
+                <th className="px-4 py-3">Cadastro</th>
+              </tr>
+            </thead>
             <tbody>
-              {filtrado.map(c => (
-                <tr key={c.cpf} className="border-b border-vallen-border/50 hover:bg-vallen-dark/40">
-                  <td className="px-4 py-2 text-vallen-white">{c.nome}</td>
-                  <td className="px-4 py-2 font-mono text-vallen-muted">{c.cpf}</td>
-                  <td className="px-4 py-2 text-vallen-muted">{idade(c.data_nascimento)}</td>
-                  <td className="px-4 py-2 text-vallen-muted">{c.unidades?.nome || '—'}</td>
-                  <td className="px-4 py-2 text-vallen-muted text-xs">{new Date(c.created_at).toLocaleDateString('pt-BR')}</td>
+              {filtrado.map((c, idx) => (
+                <tr key={c.id ?? c.cpf ?? idx} className="border-b border-vallen-border/50 hover:bg-vallen-dark/40">
+                  <td className="px-4 py-2 text-vallen-white font-medium">{c.nome}</td>
+                  <td className="px-4 py-2 font-mono text-vallen-muted">{c.telefone || '—'}</td>
+                  <td className="px-4 py-2 font-mono text-vallen-muted text-xs">{c.cpf || '—'}</td>
+                  <td className="px-4 py-2 text-vallen-muted">
+                    {idade(c.data_nascimento)}
+                    {c.data_nascimento && (
+                      <span className={`ml-2 text-xs px-1.5 py-0.5 rounded-full ${
+                        (new Date().getFullYear() - new Date(c.data_nascimento).getFullYear()) >= 18
+                          ? 'bg-green-900/40 text-green-400'
+                          : 'bg-amber-900/40 text-amber-400'
+                      }`}>
+                        {(new Date().getFullYear() - new Date(c.data_nascimento).getFullYear()) >= 18 ? '+18' : '-18'}
+                      </span>
+                    )}
+                  </td>
+                  <td className="px-4 py-2 text-vallen-muted text-xs">
+                    {new Date(c.created_at).toLocaleDateString('pt-BR')}
+                  </td>
                 </tr>
               ))}
-              {!filtrado.length && <tr><td colSpan={5} className="px-4 py-8 text-center text-vallen-muted">Nenhum cliente</td></tr>}
+              {!filtrado.length && (
+                <tr><td colSpan={5} className="px-4 py-8 text-center text-vallen-muted">Nenhum cliente</td></tr>
+              )}
             </tbody>
           </table>
         </div>

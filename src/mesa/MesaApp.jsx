@@ -100,8 +100,8 @@ export default function MesaApp() {
             </button>
           )}
           <img
-            src="https://d2xsxph8kpxj0f.cloudfront.net/310419663030100181/bfwXvEbkbq6M7kWytZDaKG/v3_logo_fundo_preto_85834ede.webp"
-            className="h-7" alt="Vallen"
+            src="/logo.png"
+            className="h-14 w-auto object-contain" alt="Vallen"
           />
         </div>
 
@@ -125,6 +125,7 @@ export default function MesaApp() {
       {tela === 'loja' && (
         <LojaMesa
           cart={cart}
+          cliente={cliente}
           onAddToCart={addItem}
           onIniciarScanner={() => setTela('scanner')}
           onVerCarrinho={() => setTela('carrinho')}

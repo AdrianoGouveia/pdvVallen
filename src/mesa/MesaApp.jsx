@@ -2,20 +2,20 @@ import { useState, useEffect } from 'react'
 import { useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { CadastroModal } from './components/CadastroModal.jsx'
+import { LojaMesa }      from './components/LojaMesa.jsx'
 import { Scanner }       from './components/Scanner.jsx'
 import { CarrinhoMesa }  from './components/CarrinhoMesa.jsx'
 import { PixMesa }       from './components/PixMesa.jsx'
 import { SucessoMesa }   from './components/SucessoMesa.jsx'
 
-// tela: scanner | carrinho | pix | maquininha | sucesso
+// tela: loja | scanner | carrinho | pix | maquininha | sucesso
 export default function MesaApp() {
   const { id } = useParams()
   const [unidade, setUnidade] = useState(null)
   const [cart, setCart]       = useState([])
-  const [tela, setTela]       = useState('scanner')
+  const [tela, setTela]       = useState('loja')
   const [pedidoId, setPedidoId] = useState(null)
 
-  // Cadastro: carrega do localStorage ou pede no primeiro acesso
   const [cliente, setCliente] = useState(() => {
     try { return JSON.parse(localStorage.getItem('mesa_cliente') || 'null') } catch { return null }
   })
@@ -39,8 +39,16 @@ export default function MesaApp() {
 
   function resetar() {
     setCart([])
-    setTela('scanner')
+    setTela('loja')
     setPedidoId(null)
+  }
+
+  const titulos = {
+    loja:       'Produtos',
+    scanner:    'Escanear',
+    carrinho:   'Carrinho',
+    pix:        'Pagar com PIX',
+    maquininha: 'Maquininha',
   }
 
   if (tela === 'sucesso') return (
@@ -50,32 +58,59 @@ export default function MesaApp() {
   return (
     <div className="flex flex-col h-dvh bg-vallen-dark text-vallen-white">
 
-      {/* Modal de cadastro no primeiro acesso */}
       {!cliente && <CadastroModal onConcluido={setCliente} />}
 
       {/* Header */}
       <header className="flex items-center justify-between px-4 py-3 bg-vallen-black border-b border-vallen-border flex-shrink-0">
-        <img
-          src="https://d2xsxph8kpxj0f.cloudfront.net/310419663030100181/bfwXvEbkbq6M7kWytZDaKG/v3_logo_fundo_preto_85834ede.webp"
-          className="h-8" alt="Vallen"
-        />
-        {unidade && (
-          <span className="text-xs text-vallen-muted border border-vallen-border rounded px-2 py-1">
-            {unidade.nome}
-          </span>
-        )}
-        {cart.length > 0 && tela === 'scanner' && (
-          <button
-            onClick={() => setTela('carrinho')}
-            className="flex items-center gap-1.5 bg-vallen-green text-white px-3 py-2 rounded-xl text-sm font-bold">
-            🛒 {cart.length} · R$ {total.toFixed(2)}
-          </button>
-        )}
+        <div className="flex items-center gap-3">
+          {tela !== 'loja' && (
+            <button
+              onClick={() => setTela(tela === 'scanner' ? 'loja' : tela === 'carrinho' ? 'scanner' : tela === 'pix' || tela === 'maquininha' ? 'carrinho' : 'loja')}
+              className="text-vallen-muted hover:text-vallen-white"
+            >
+              ←
+            </button>
+          )}
+          <img
+            src="https://d2xsxph8kpxj0f.cloudfront.net/310419663030100181/bfwXvEbkbq6M7kWytZDaKG/v3_logo_fundo_preto_85834ede.webp"
+            className="h-7" alt="Vallen"
+          />
+        </div>
+
+        <div className="flex items-center gap-3">
+          {unidade && (
+            <span className="text-xs text-vallen-muted border border-vallen-border rounded px-2 py-1">
+              {unidade.nome}
+            </span>
+          )}
+          {cart.length > 0 && tela !== 'carrinho' && tela !== 'pix' && tela !== 'maquininha' && (
+            <button
+              onClick={() => setTela('carrinho')}
+              className="flex items-center gap-1.5 bg-vallen-green text-white px-3 py-1.5 rounded-xl text-xs font-bold">
+              🛒 {cart.reduce((a, i) => a + i.quantidade, 0)} · R$ {total.toFixed(2)}
+            </button>
+          )}
+        </div>
       </header>
 
       {/* Telas */}
+      {tela === 'loja' && (
+        <LojaMesa
+          cart={cart}
+          onAddToCart={addItem}
+          onIniciarScanner={() => setTela('scanner')}
+          onVerCarrinho={() => setTela('carrinho')}
+        />
+      )}
+
       {tela === 'scanner' && (
-        <Scanner unidadeId={unidade?.id} onScan={addItem} />
+        <Scanner
+          cart={cart}
+          setCart={setCart}
+          onScan={addItem}
+          onFinalizar={() => setTela('carrinho')}
+          onVoltar={() => setTela('loja')}
+        />
       )}
 
       {tela === 'carrinho' && (
@@ -116,7 +151,7 @@ export default function MesaApp() {
             ✓ Pagamento confirmado
           </button>
           <button onClick={() => setTela('carrinho')}
-            className="text-sm text-vallen-muted hover:text-vallen-white transition-colors">
+            className="text-sm text-vallen-muted hover:text-vallen-white">
             ← Voltar
           </button>
         </div>

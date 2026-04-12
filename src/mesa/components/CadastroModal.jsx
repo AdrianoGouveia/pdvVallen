@@ -1,6 +1,19 @@
 import { useState } from 'react'
 import { supabase } from '../../lib/supabase'
 
+function mascaraData(valor) {
+  const digits = valor.replace(/\D/g, '').slice(0, 8)
+  if (digits.length <= 2) return digits
+  if (digits.length <= 4) return `${digits.slice(0,2)}/${digits.slice(2)}`
+  return `${digits.slice(0,2)}/${digits.slice(2,4)}/${digits.slice(4)}`
+}
+
+function parseDDMMAAAA(str) {
+  const m = str.match(/^(\d{2})\/(\d{2})\/(\d{4})$/)
+  if (!m) return null
+  return new Date(`${m[3]}-${m[2]}-${m[1]}`)
+}
+
 export function CadastroModal({ onConcluido }) {
   const [form, setForm]   = useState({ nome: '', telefone: '', nascimento: '' })
   const [erro, setErro]   = useState('')
@@ -11,19 +24,36 @@ export function CadastroModal({ onConcluido }) {
     setForm(f => ({ ...f, [campo]: valor }))
   }
 
+  function handleNascimento(e) {
+    setErro('')
+    setForm(f => ({ ...f, nascimento: mascaraData(e.target.value) }))
+  }
+
   async function handleSubmit(e) {
     e.preventDefault()
     const { nome, telefone, nascimento } = form
 
-    // Validação de idade
-    const idade = (Date.now() - new Date(nascimento).getTime()) / (1000 * 3600 * 24 * 365.25)
-    if (isNaN(idade) || idade < 18) {
+    if (nascimento.length < 10) {
+      setErro('Digite a data completa: DD/MM/AAAA')
+      return
+    }
+
+    const dataNasc = parseDDMMAAAA(nascimento)
+    if (!dataNasc || isNaN(dataNasc.getTime())) {
+      setErro('Data inválida. Use o formato DD/MM/AAAA')
+      return
+    }
+
+    const idade = (Date.now() - dataNasc.getTime()) / (1000 * 3600 * 24 * 365.25)
+    if (idade < 18) {
       setErro('Você precisa ter 18 anos ou mais para continuar.')
       return
     }
 
+    const isoDate = `${nascimento.slice(6)}-${nascimento.slice(3,5)}-${nascimento.slice(0,2)}`
+
     setLoading(true)
-    await supabase.from('clientes').insert({ nome, telefone, data_nascimento: nascimento })
+    await supabase.from('clientes').insert({ nome, telefone, data_nascimento: isoDate })
     localStorage.setItem('mesa_cliente', JSON.stringify({ nome, telefone, nascimento }))
     setLoading(false)
     onConcluido({ nome, telefone })
@@ -68,10 +98,12 @@ export function CadastroModal({ onConcluido }) {
             <label className="text-xs text-vallen-muted font-medium">Data de nascimento</label>
             <input
               value={form.nascimento}
-              onChange={e => set('nascimento', e.target.value)}
-              type="date"
+              onChange={handleNascimento}
+              placeholder="DD/MM/AAAA"
+              inputMode="numeric"
+              maxLength={10}
               required
-              className="w-full bg-vallen-dark border border-vallen-border rounded-xl px-4 py-3.5 text-base text-vallen-white focus:outline-none focus:border-vallen-green"
+              className="w-full bg-vallen-dark border border-vallen-border rounded-xl px-4 py-3.5 text-base text-vallen-white focus:outline-none focus:border-vallen-green tracking-widest"
             />
           </div>
 

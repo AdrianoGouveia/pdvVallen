@@ -4,13 +4,48 @@ import { PageHeader } from '../components/PageHeader.jsx'
 import { Field, inputCls, Btn } from '../components/Field.jsx'
 import { Modal } from '../components/Modal.jsx'
 
-// ─── CSV Parser ───────────────────────────────────────────────────────────────
-function parseNF(text) {
+// ─── Parsers de NF ────────────────────────────────────────────────────────────
+
+// Formato texto: {num}{nome}{13 dígitos barcode}{unidade}{qtd}{preco}{total}
+// Ex: "1MASSA TAPI DONA 500G7898922012125Un10,00004,4944,90"
+function parseNFTexto(text) {
+  const lines = text.trim().split(/\r?\n/).filter(l => l.trim())
+  const mapa  = {}
+  // Barcode 13 dígitos é a âncora; nome vem antes, números depois
+  const re = /^(\d{1,4})(.+?)(\d{13})(Un|kg|PC|FD|DZ|CX|L)(.*)$/i
+  for (const linha of lines) {
+    const m = linha.match(re)
+    if (!m) continue
+    const nome   = m[2].trim()
+    const codigo = m[3]
+    // Extrair números do restante (qtd, preco_custo, total)
+    const nums        = (m[5] || '').match(/\d+[,\.]\d+/g) || []
+    const num = s => parseFloat((s || '0').replace(',', '.')) || 0
+    const qtd         = num(nums[0])
+    const preco_custo = num(nums[1])
+    if (mapa[codigo]) {
+      mapa[codigo].quantidade += qtd
+    } else {
+      mapa[codigo] = { codigo, nome, quantidade: qtd, preco_custo, markup: 0, preco: 0 }
+    }
+  }
+  return Object.values(mapa).filter(r => r.codigo)
+}
+
+// Extrai mapa barcode→nome de um texto NF (para preencher pendentes existentes)
+function extrairNomesNF(text) {
+  const rows = parseNFTexto(text)
+  const mapa = {}
+  for (const r of rows) if (r.nome) mapa[r.codigo] = r.nome
+  return mapa
+}
+
+// Formato CSV: com cabeçalho CODIGO, PRECO DE COMPRA, QUANTIDADE, MARKUP, PRECO DE VENDA
+function parseNFCsv(text) {
   const lines = text.trim().split(/\r?\n/).filter(l => l.trim())
   if (lines.length < 2) return []
 
   const delim = (lines[0].match(/;/g) || []).length > (lines[0].match(/,/g) || []).length ? ';' : ','
-
   const rawHeaders = lines[0].split(delim).map(h => h.replace(/["\r]/g, '').trim().toUpperCase())
 
   function findCol(...keywords) {
@@ -18,12 +53,13 @@ function parseNF(text) {
   }
 
   const iCodigo = findCol('CODIGO') >= 0 ? findCol('CODIGO') : findCol('COD')
+  const iNome   = findCol('NOME') >= 0 ? findCol('NOME') : findCol('DESCRICAO') >= 0 ? findCol('DESCRICAO') : -1
   const iCompra = findCol('PRECO', 'COMPRA') >= 0 ? findCol('PRECO', 'COMPRA') : findCol('COMPRA')
   const iQtd    = findCol('QUANTIDADE') >= 0 ? findCol('QUANTIDADE') : findCol('QTD')
   const iMarkup = findCol('MARKUP')
   const iVenda  = findCol('PRECO', 'VENDA') >= 0 ? findCol('PRECO', 'VENDA') : findCol('VENDA')
 
-  if (iCodigo < 0) return null // headers not recognized
+  if (iCodigo < 0) return null
 
   function num(s) {
     return parseFloat(String(s ?? '').replace(/["\r\s]/g, '').replace(',', '.')) || 0
@@ -34,12 +70,13 @@ function parseNF(text) {
     const cols   = lines[i].split(delim).map(c => c.replace(/["\r]/g, '').trim())
     const codigo = cols[iCodigo]
     if (!codigo) continue
-    const qtd    = num(cols[iQtd])
+    const qtd = num(cols[iQtd])
     if (mapa[codigo]) {
       mapa[codigo].quantidade += qtd
     } else {
       mapa[codigo] = {
         codigo,
+        nome       : iNome >= 0 ? cols[iNome] : '',
         quantidade : qtd,
         preco_custo: num(cols[iCompra]),
         markup     : num(cols[iMarkup]),
@@ -48,6 +85,16 @@ function parseNF(text) {
     }
   }
   return Object.values(mapa)
+}
+
+function parseNF(text) {
+  const firstLine = text.trim().split(/\r?\n/)[0] || ''
+  const upper     = firstLine.toUpperCase()
+  // Se tem cabeçalho CSV (CODIGO, PRECO...) usa CSV parser
+  if (upper.includes('CODIGO') || upper.includes('COD')) return parseNFCsv(text)
+  // Senão tenta formato texto com nome embutido
+  const rows = parseNFTexto(text)
+  return rows.length ? rows : null
 }
 
 // ─── Tab components ───────────────────────────────────────────────────────────
@@ -406,6 +453,9 @@ function TabPendentes({ onPendentesChange }) {
   const [categorias, setCats]   = useState([])
   const [similares, setSimilares] = useState(null)
   const [novaCat, setNovaCat]   = useState(false)
+  const [nfTexto, setNfTexto]   = useState('')
+  const [nfPainel, setNfPainel] = useState(false)
+  const [nfMsg, setNfMsg]       = useState('')
 
   useEffect(() => {
     supabase.from('v_categorias').select('categoria').then(({ data }) =>
@@ -433,6 +483,20 @@ function TabPendentes({ onPendentesChange }) {
     setForm(p => ({ ...p, preco: val, markup }))
   }
 
+  function preencherNomes() {
+    const mapa = extrairNomesNF(nfTexto)
+    const count = Object.keys(mapa).length
+    if (!count) { setNfMsg('Nenhum código de barras reconhecido no texto.'); return }
+    const atualizada = lista.map(item =>
+      mapa[item.codigo] && !item.nome ? { ...item, nome: mapa[item.codigo] } : item
+    )
+    localStorage.setItem('estoque_pendentes', JSON.stringify(atualizada))
+    setLista(atualizada)
+    const preenchidos = atualizada.filter(i => i.nome).length
+    setNfMsg(`✅ ${preenchidos} produto(s) com nome preenchido.`)
+    setNfTexto('')
+  }
+
   function abrirCadastro(item) {
     setSimilares(null)
     setNovaCat(false)
@@ -442,7 +506,7 @@ function TabPendentes({ onPendentesChange }) {
       markup        : item.markup,
       preco         : item.preco,
       quantidade    : item.quantidade,
-      nome          : '',
+      nome          : item.nome || '',   // pré-preenche se veio da NF
       categoria     : '',
       unidade_medida: 'UN',
       imagem_url    : '',
@@ -505,20 +569,53 @@ function TabPendentes({ onPendentesChange }) {
     </div>
   )
 
+  const semNome = lista.filter(i => !i.nome).length
+
   return (
-    <div className="px-6 py-4">
-      <p className="text-sm text-vallen-muted mb-4">
+    <div className="px-6 py-4 space-y-4">
+
+      {/* Painel: preencher nomes do NF */}
+      {semNome > 0 && (
+        <div className="bg-amber-900/20 border border-amber-700/50 rounded-xl p-4">
+          <button
+            onClick={() => setNfPainel(v => !v)}
+            className="flex items-center gap-2 text-amber-300 font-medium text-sm w-full text-left">
+            📋 {semNome} produto(s) sem nome — cole o texto da NF para preencher automaticamente
+            <span className="ml-auto">{nfPainel ? '▲' : '▼'}</span>
+          </button>
+          {nfPainel && (
+            <div className="mt-3 space-y-2">
+              <textarea
+                value={nfTexto}
+                onChange={e => { setNfTexto(e.target.value); setNfMsg('') }}
+                placeholder={'Cole aqui o texto da NF com o formato:\n1PRODUTO NOME 500G7898922012125Un1,00004,4944,90\n2OUTRO PRODUTO7896089013634Un2,000025,89103,56\n...'}
+                rows={6}
+                className="w-full bg-vallen-dark border border-vallen-border rounded-lg px-3 py-2 text-xs text-vallen-white font-mono resize-none focus:outline-none focus:border-vallen-green"
+              />
+              <div className="flex items-center gap-3">
+                <Btn onClick={preencherNomes} disabled={!nfTexto.trim()}>
+                  ✓ Preencher nomes
+                </Btn>
+                {nfMsg && <span className={`text-sm ${nfMsg.startsWith('✅') ? 'text-green-400' : 'text-red-400'}`}>{nfMsg}</span>}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      <p className="text-sm text-vallen-muted">
         {lista.length} produto(s) importados da NF mas não encontrados no sistema.
-        Clique no código para pesquisar o produto ou em <strong className="text-vallen-white">Cadastrar</strong> para registrar.
+        Clique no código para pesquisar ou em <strong className="text-vallen-white">Cadastrar</strong>.
       </p>
+
       <div className="bg-vallen-card border border-vallen-border rounded-xl overflow-hidden">
         <table className="w-full text-sm">
           <thead><tr className="border-b border-vallen-border text-vallen-muted text-left">
             <th className="px-4 py-3">Código de barras</th>
-            <th className="px-4 py-3">Qtd NF</th>
+            <th className="px-4 py-3">Nome (NF)</th>
+            <th className="px-4 py-3">Qtd</th>
             <th className="px-4 py-3">Custo</th>
-            <th className="px-4 py-3">Markup</th>
-            <th className="px-4 py-3">Preço sugerido</th>
+            <th className="px-4 py-3">Preço</th>
             <th className="px-4 py-3"></th>
           </tr></thead>
           <tbody>
@@ -529,15 +626,19 @@ function TabPendentes({ onPendentesChange }) {
                     href={`https://cosmos.bluesoft.com.br/produtos/${item.codigo}`}
                     target="_blank" rel="noopener noreferrer"
                     className="font-mono text-amber-400 hover:text-amber-300 underline underline-offset-2 text-xs"
-                    title="Pesquisar produto no Bluesoft Cosmos"
                   >
                     {item.codigo} ↗
                   </a>
                 </td>
-                <td className="px-4 py-3 text-vallen-white">{item.quantidade}</td>
-                <td className="px-4 py-3 text-vallen-muted">R$ {Number(item.preco_custo).toFixed(2)}</td>
-                <td className="px-4 py-3 text-vallen-muted">{Number(item.markup).toFixed(0)}%</td>
-                <td className="px-4 py-3 text-vallen-green font-medium">R$ {Number(item.preco).toFixed(2)}</td>
+                <td className="px-4 py-3">
+                  {item.nome
+                    ? <span className="text-vallen-white text-xs">{item.nome}</span>
+                    : <span className="text-vallen-gray text-xs italic">— cole NF acima —</span>
+                  }
+                </td>
+                <td className="px-4 py-3 text-vallen-muted text-xs">{item.quantidade}</td>
+                <td className="px-4 py-3 text-vallen-muted text-xs">R$ {Number(item.preco_custo).toFixed(2)}</td>
+                <td className="px-4 py-3 text-vallen-green text-xs font-medium">R$ {Number(item.preco).toFixed(2)}</td>
                 <td className="px-4 py-3 flex gap-2">
                   <Btn onClick={() => abrirCadastro(item)}>Cadastrar</Btn>
                   <Btn variant="danger" onClick={() => remover(item.codigo)}>Ignorar</Btn>

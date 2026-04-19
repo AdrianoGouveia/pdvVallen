@@ -24,7 +24,9 @@ private val VallenColorScheme = darkColorScheme(
     onSurfaceVariant = VallenTextMuted,
     outline = VallenBorder,
     error = VallenError,
-    onError = VallenText
+    onError = VallenText,
+    tertiary = VallenSuccess,
+    onTertiary = VallenBlack
 )
 
 @Composable

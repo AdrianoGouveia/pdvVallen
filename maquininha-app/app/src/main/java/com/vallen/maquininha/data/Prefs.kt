@@ -57,6 +57,22 @@ object Prefs {
         appContext.dataStore.edit { it.clear() }
     }
 
+    suspend fun clearTerminal() {
+        appContext.dataStore.edit { p ->
+            p.remove(KEY_TERMINAL_ID)
+            p.remove(KEY_TERMINAL_NOME)
+        }
+    }
+
+    suspend fun clearUnidade() {
+        appContext.dataStore.edit { p ->
+            p.remove(KEY_TERMINAL_ID)
+            p.remove(KEY_TERMINAL_NOME)
+            p.remove(KEY_UNIDADE_ID)
+            p.remove(KEY_UNIDADE_NOME)
+        }
+    }
+
     private fun <T> get(block: (Preferences) -> T?): Flow<T?> =
         appContext.dataStore.data.map { block(it) }
 }

@@ -17,15 +17,23 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
+const val CATEGORIA_TODOS = "todos"
+
 data class HomeUiState(
     val loading: Boolean = true,
     val termo: String = "",
-    val produtos: List<Produto> = emptyList(),
+    val categoriaSelecionada: String = CATEGORIA_TODOS,
+    val categorias: List<String> = listOf(CATEGORIA_TODOS),
+    val produtosTodos: List<Produto> = emptyList(),
     val erro: String? = null,
     val aviso: String? = null,
     val itensNoCarrinho: Int = 0,
     val totalCarrinho: Double = 0.0
-)
+) {
+    val produtos: List<Produto>
+        get() = if (categoriaSelecionada == CATEGORIA_TODOS) produtosTodos
+                else produtosTodos.filter { it.categoria.equals(categoriaSelecionada, ignoreCase = true) }
+}
 
 class HomeViewModel : ViewModel() {
     private val _state = MutableStateFlow(HomeUiState())
@@ -46,6 +54,10 @@ class HomeViewModel : ViewModel() {
         termoFlow.value = t
     }
 
+    fun setCategoria(c: String) {
+        _state.update { it.copy(categoriaSelecionada = c) }
+    }
+
     fun adicionar(produto: Produto) {
         CartStore.add(produto)
         _state.update { it.copy(aviso = "${produto.nome} · +1") }
@@ -60,7 +72,13 @@ class HomeViewModel : ViewModel() {
                 val unidadeId = Prefs.unidadeId.first()
                     ?: throw IllegalStateException("Unidade não configurada")
                 val lista = ProdutosRepository.buscar(unidadeId, termo)
-                _state.update { it.copy(loading = false, produtos = lista) }
+                val cats = buildList {
+                    add(CATEGORIA_TODOS)
+                    addAll(lista.mapNotNull { it.categoria?.trim()?.takeIf { s -> s.isNotEmpty() } }
+                        .distinctBy { it.lowercase() }
+                        .sorted())
+                }
+                _state.update { it.copy(loading = false, produtosTodos = lista, categorias = cats) }
             } catch (e: Exception) {
                 _state.update { it.copy(loading = false, erro = e.message ?: "Erro ao buscar produtos") }
             }

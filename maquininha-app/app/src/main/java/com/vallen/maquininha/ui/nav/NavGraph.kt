@@ -12,6 +12,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import com.vallen.maquininha.ui.settings.SettingsEasterEgg
+import com.vallen.maquininha.ui.settings.SettingsScreen
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -22,12 +24,24 @@ import com.vallen.maquininha.data.Prefs
 import com.vallen.maquininha.ui.auth.LoginScreen
 import com.vallen.maquininha.ui.auth.SelectFranqueadoScreen
 import com.vallen.maquininha.ui.auth.SelectUnidadeScreen
+import com.vallen.maquininha.data.CartStore
+import com.vallen.maquininha.plugpag.PaymentKind
 import com.vallen.maquininha.ui.cart.CartScreen
+import com.vallen.maquininha.ui.cart.EmptyCartScreen
 import com.vallen.maquininha.ui.home.HomeScreen
+import com.vallen.maquininha.ui.payment.MetodoPagamento
+import com.vallen.maquininha.ui.payment.PaymentMethodScreen
 import com.vallen.maquininha.ui.payment.PaymentScreen
 import com.vallen.maquininha.ui.result.ResultScreen
 import com.vallen.maquininha.ui.setup.SetupScreen
+import com.vallen.maquininha.ui.welcome.WelcomeScreen
 import kotlinx.coroutines.flow.first
+
+private fun MetodoPagamento.toPaymentKind(): PaymentKind = when (this) {
+    MetodoPagamento.CREDITO -> PaymentKind.CREDIT
+    MetodoPagamento.DEBITO  -> PaymentKind.DEBIT
+    MetodoPagamento.PIX     -> PaymentKind.PIX
+}
 
 @Composable
 fun AppNav() {
@@ -39,7 +53,7 @@ fun AppNav() {
             Prefs.franqueadoId.first() == null            -> Routes.SELECT_FRANQUEADO
             Prefs.unidadeId.first() == null               -> Routes.SELECT_UNIDADE
             Prefs.terminalId.first() == null              -> Routes.SETUP
-            else                                          -> Routes.HOME
+            else                                          -> Routes.WELCOME
         }
     }
 
@@ -52,6 +66,17 @@ fun AppNav() {
     }
 
     val nav = rememberNavController()
+
+    val cancelarCompra: () -> Unit = {
+        CartStore.clear()
+        nav.navigate(Routes.WELCOME) {
+            popUpTo(Routes.WELCOME) { inclusive = true }
+        }
+    }
+
+    val onLogoTap: () -> Unit = { SettingsEasterEgg.tap() }
+
+    Box(Modifier.fillMaxSize()) {
     NavHost(navController = nav, startDestination = start) {
 
         composable(Routes.LOGIN) {
@@ -80,29 +105,70 @@ fun AppNav() {
 
         composable(Routes.SETUP) {
             SetupScreen(onDone = {
-                nav.navigate(Routes.HOME) {
+                nav.navigate(Routes.WELCOME) {
                     popUpTo(Routes.SETUP) { inclusive = true }
                 }
             })
         }
 
+        composable(Routes.WELCOME) {
+            WelcomeScreen(
+                onStart = {
+                    nav.navigate(Routes.EMPTY_CART) {
+                        popUpTo(Routes.WELCOME) { inclusive = true }
+                    }
+                },
+                onLogoClick = onLogoTap
+            )
+        }
+
+        composable(Routes.EMPTY_CART) {
+            EmptyCartScreen(
+                onEscolherLista = { nav.navigate(Routes.HOME) },
+                onCancel = cancelarCompra,
+                onLogoClick = onLogoTap
+            )
+        }
+
         composable(Routes.HOME) {
-            HomeScreen(onVerCarrinho = { nav.navigate(Routes.CART) })
+            HomeScreen(
+                onVerCarrinho = { nav.navigate(Routes.CART) },
+                onVoltar = { nav.popBackStack() }
+            )
         }
 
         composable(Routes.CART) {
             CartScreen(
                 onVoltar = { nav.popBackStack() },
-                onPagar = { nav.navigate(Routes.PAYMENT) }
+                onPagar = { nav.navigate(Routes.METHOD) },
+                onCancelar = cancelarCompra,
+                onLogoClick = onLogoTap
             )
         }
 
-        composable(Routes.PAYMENT) {
-            PaymentScreen(
+        composable(Routes.METHOD) {
+            PaymentMethodScreen(
                 onVoltar = { nav.popBackStack() },
+                onCancelar = cancelarCompra,
+                onSelecionar = { metodo ->
+                    nav.navigate(Routes.payment(metodo.name))
+                }
+            )
+        }
+
+        composable(
+            Routes.PAYMENT,
+            arguments = listOf(navArgument("metodo") { type = NavType.StringType })
+        ) { entry ->
+            val metodoName = entry.arguments?.getString("metodo")
+            val metodo = metodoName?.let { runCatching { MetodoPagamento.valueOf(it) }.getOrNull() }
+            PaymentScreen(
+                metodoInicial = metodo?.toPaymentKind(),
+                onVoltar = { nav.popBackStack() },
+                onCancelar = cancelarCompra,
                 onFinalizado = { aprovado, valor, nsu ->
                     nav.navigate(Routes.result(aprovado, valor, nsu)) {
-                        popUpTo(Routes.HOME)
+                        popUpTo(Routes.WELCOME)
                     }
                 }
             )
@@ -122,8 +188,33 @@ fun AppNav() {
                 valor = args.getFloat("valor").toDouble(),
                 nsu = args.getString("nsu").orEmpty(),
                 onVoltar = {
-                    nav.navigate(Routes.HOME) {
-                        popUpTo(Routes.HOME) { inclusive = true }
+                    nav.navigate(Routes.WELCOME) {
+                        popUpTo(Routes.WELCOME) { inclusive = true }
+                    }
+                }
+            )
+        }
+    }
+
+        if (SettingsEasterEgg.visivel) {
+            SettingsScreen(
+                onClose = { SettingsEasterEgg.fechar() },
+                onLogout = {
+                    SettingsEasterEgg.fechar()
+                    nav.navigate(Routes.LOGIN) {
+                        popUpTo(nav.graph.id) { inclusive = true }
+                    }
+                },
+                onTrocarUnidade = {
+                    SettingsEasterEgg.fechar()
+                    nav.navigate(Routes.SELECT_UNIDADE) {
+                        popUpTo(nav.graph.id) { inclusive = true }
+                    }
+                },
+                onReconfigurarTerminal = {
+                    SettingsEasterEgg.fechar()
+                    nav.navigate(Routes.SETUP) {
+                        popUpTo(nav.graph.id) { inclusive = true }
                     }
                 }
             )

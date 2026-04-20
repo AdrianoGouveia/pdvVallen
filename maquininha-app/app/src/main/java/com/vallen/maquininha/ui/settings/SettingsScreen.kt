@@ -21,6 +21,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.automirrored.filled.Logout
+import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Storefront
@@ -60,7 +61,8 @@ fun SettingsScreen(
     onClose: () -> Unit,
     onLogout: () -> Unit,
     onTrocarUnidade: () -> Unit,
-    onReconfigurarTerminal: () -> Unit
+    onReconfigurarTerminal: () -> Unit,
+    onPendencias: () -> Unit
 ) {
     var autenticado by remember { mutableStateOf(false) }
 
@@ -90,6 +92,7 @@ fun SettingsScreen(
                 Acoes(
                     onTrocarUnidade = onTrocarUnidade,
                     onReconfigurarTerminal = onReconfigurarTerminal,
+                    onPendencias = onPendencias,
                     onLogout = onLogout,
                     onClose = onClose
                 )
@@ -228,6 +231,7 @@ private fun SenhaForm(onValidar: () -> Unit, onCancelar: () -> Unit) {
 private fun Acoes(
     onTrocarUnidade: () -> Unit,
     onReconfigurarTerminal: () -> Unit,
+    onPendencias: () -> Unit,
     onLogout: () -> Unit,
     onClose: () -> Unit
 ) {
@@ -244,6 +248,13 @@ private fun Acoes(
 
         Spacer(Modifier.height(20.dp))
 
+        AcaoItem(
+            icon = Icons.Filled.ErrorOutline,
+            titulo = "Pendências do planograma",
+            subtitulo = "Códigos lidos fora do catálogo",
+            onClick = onPendencias
+        )
+        Spacer(Modifier.height(8.dp))
         AcaoItem(
             icon = Icons.Filled.Storefront,
             titulo = "Trocar unidade",

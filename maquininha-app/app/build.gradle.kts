@@ -81,6 +81,7 @@ dependencies {
     implementation(libs.supabase.postgrest.kt)
     implementation(libs.supabase.realtime.kt)
     implementation(libs.supabase.auth.kt)
+    implementation(libs.supabase.storage.kt)
 
     implementation(libs.androidx.datastore.preferences)
 

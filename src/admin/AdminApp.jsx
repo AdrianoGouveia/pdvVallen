@@ -1,15 +1,17 @@
-import { useState } from 'react'
-import { Routes, Route, NavLink, Navigate, useNavigate } from 'react-router-dom'
-import { Condominios }  from './pages/Condominios.jsx'
-import { Produtos }     from './pages/Produtos.jsx'
-import { Estoque }      from './pages/Estoque.jsx'
-import { Clientes }     from './pages/Clientes.jsx'
-import { Pedidos }      from './pages/Pedidos.jsx'
-import { Categorias }   from './pages/Categorias.jsx'
-
-const ADMIN_PASS = import.meta.env.VITE_ADMIN_PASS || 'vallen2024'
+import { Routes, Route, NavLink, Navigate } from 'react-router-dom'
+import { FranqueadoProvider, useFranqueado } from './lib/franqueadoContext.jsx'
+import { Login } from './pages/Login.jsx'
+import { SelecaoContexto } from './pages/SelecaoContexto.jsx'
+import { Pendencias }    from './pages/Pendencias.jsx'
+import { Condominios }   from './pages/Condominios.jsx'
+import { Produtos }      from './pages/Produtos.jsx'
+import { Estoque }       from './pages/Estoque.jsx'
+import { Clientes }      from './pages/Clientes.jsx'
+import { Pedidos }       from './pages/Pedidos.jsx'
+import { Categorias }    from './pages/Categorias.jsx'
 
 const NAV = [
+  { to: '/admin/pendencias',  label: 'Pendências',  icon: '⚠️', multi: true },
   { to: '/admin/condominios', label: 'Condomínios', icon: '🏢' },
   { to: '/admin/categorias',  label: 'Categorias',  icon: '🏷️' },
   { to: '/admin/produtos',    label: 'Produtos',    icon: '📦' },
@@ -18,50 +20,41 @@ const NAV = [
   { to: '/admin/pedidos',     label: 'Pedidos',     icon: '🧾' },
 ]
 
-function Login({ onLogin }) {
-  const [pass, setPass] = useState('')
-  const [err, setErr]   = useState(false)
-  function submit(e) {
-    e.preventDefault()
-    if (pass === ADMIN_PASS) onLogin()
-    else setErr(true)
-  }
+export default function AdminApp() {
   return (
-    <div className="flex items-center justify-center h-screen bg-vallen-dark">
-      <form onSubmit={submit} className="bg-vallen-card border border-vallen-border rounded-xl p-8 w-80 space-y-4">
-        <img src="/logo.png"
-          className="h-16 mx-auto" alt="Vallen" />
-        <h2 className="text-center text-vallen-white font-bold text-lg">Painel Admin</h2>
-        <input type="password" value={pass} onChange={e => { setPass(e.target.value); setErr(false) }}
-          placeholder="Senha" autoFocus
-          className="w-full bg-vallen-dark border border-vallen-border rounded-lg px-4 py-3 text-vallen-white focus:outline-none focus:border-vallen-green" />
-        {err && <p className="text-red-400 text-sm text-center">Senha incorreta</p>}
-        <button className="w-full py-3 bg-vallen-green text-white font-bold rounded-lg hover:bg-vallen-greenLight">
-          Entrar
-        </button>
-      </form>
-    </div>
+    <FranqueadoProvider>
+      <AdminGate />
+    </FranqueadoProvider>
   )
 }
 
-export default function AdminApp() {
-  const [auth, setAuth] = useState(() => sessionStorage.getItem('adm') === '1')
-  const navigate = useNavigate()
+function AdminGate() {
+  const { session, loading, franqueadoId, unidadeId } = useFranqueado()
 
-  if (!auth) return <Login onLogin={() => { sessionStorage.setItem('adm','1'); setAuth(true) }} />
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-vallen-dark text-vallen-muted">
+        Carregando…
+      </div>
+    )
+  }
+  if (!session) return <Login />
+  if (!franqueadoId || !unidadeId) return <SelecaoContexto />
 
-  function logout() { sessionStorage.removeItem('adm'); setAuth(false) }
+  return <AdminShell />
+}
 
+function AdminShell() {
+  const { logout } = useFranqueado()
   return (
     <div className="flex h-screen bg-vallen-dark text-vallen-white overflow-hidden">
-      {/* Sidebar */}
       <aside className="w-52 flex-shrink-0 bg-vallen-black border-r border-vallen-border flex flex-col">
         <div className="px-4 py-5 border-b border-vallen-border">
-          <img src="/logo.png"
-            className="h-14 w-auto" alt="Vallen" />
+          <img src="/logo.png" className="h-14 w-auto" alt="Vallen" />
           <p className="text-xs text-vallen-muted mt-1">Painel Administrativo</p>
         </div>
-        <nav className="flex-1 py-4 space-y-1 px-2">
+        <ContextoHeader />
+        <nav className="flex-1 py-4 space-y-1 px-2 overflow-y-auto">
           {NAV.map(n => (
             <NavLink key={n.to} to={n.to}
               className={({ isActive }) =>
@@ -80,18 +73,47 @@ export default function AdminApp() {
         </div>
       </aside>
 
-      {/* Content */}
       <main className="flex-1 overflow-auto">
         <Routes>
-          <Route index element={<Navigate to="condominios" replace />} />
-          <Route path="condominios" element={<Condominios />} />
-          <Route path="categorias"  element={<Categorias />} />
-          <Route path="produtos"    element={<Produtos />} />
-          <Route path="estoque"     element={<Estoque />} />
-          <Route path="clientes"    element={<Clientes />} />
-          <Route path="pedidos"     element={<Pedidos />} />
+          <Route index                 element={<Navigate to="pendencias" replace />} />
+          <Route path="pendencias"     element={<Pendencias />} />
+          <Route path="condominios"    element={<Condominios />} />
+          <Route path="categorias"     element={<Categorias />} />
+          <Route path="produtos"       element={<Produtos />} />
+          <Route path="estoque"        element={<Estoque />} />
+          <Route path="clientes"       element={<Clientes />} />
+          <Route path="pedidos"        element={<Pedidos />} />
         </Routes>
       </main>
+    </div>
+  )
+}
+
+function ContextoHeader() {
+  const { franqueados, franqueadoId, selectFranqueado, unidades, unidadeId, selectUnidade } = useFranqueado()
+  const f = franqueados.find(x => x.id === franqueadoId)
+  const u = unidades.find(x => x.id === unidadeId)
+
+  return (
+    <div className="px-3 py-3 border-b border-vallen-border space-y-2 text-xs">
+      <div>
+        <div className="text-[10px] uppercase tracking-wider text-vallen-muted">Franqueado</div>
+        <select value={franqueadoId || ''} onChange={e => selectFranqueado(Number(e.target.value))}
+          className="mt-1 w-full bg-vallen-dark border border-vallen-border rounded px-2 py-1.5 text-vallen-white text-xs">
+          {franqueados.map(x => (
+            <option key={x.id} value={x.id}>{x.nome_fantasia || x.razao_social}</option>
+          ))}
+        </select>
+      </div>
+      <div>
+        <div className="text-[10px] uppercase tracking-wider text-vallen-muted">Unidade</div>
+        <select value={unidadeId || ''} onChange={e => selectUnidade(Number(e.target.value))}
+          className="mt-1 w-full bg-vallen-dark border border-vallen-border rounded px-2 py-1.5 text-vallen-white text-xs">
+          {unidades.map(x => (
+            <option key={x.id} value={x.id}>{x.nome}</option>
+          ))}
+        </select>
+      </div>
     </div>
   )
 }

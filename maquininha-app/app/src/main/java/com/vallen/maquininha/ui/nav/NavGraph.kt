@@ -32,6 +32,7 @@ import com.vallen.maquininha.ui.home.HomeScreen
 import com.vallen.maquininha.ui.payment.MetodoPagamento
 import com.vallen.maquininha.ui.payment.PaymentMethodScreen
 import com.vallen.maquininha.ui.payment.PaymentScreen
+import com.vallen.maquininha.ui.pendencias.PendenciasScreen
 import com.vallen.maquininha.ui.result.ResultScreen
 import com.vallen.maquininha.ui.setup.SetupScreen
 import com.vallen.maquininha.ui.welcome.WelcomeScreen
@@ -174,6 +175,10 @@ fun AppNav() {
             )
         }
 
+        composable(Routes.PENDENCIAS) {
+            PendenciasScreen(onVoltar = { nav.popBackStack() })
+        }
+
         composable(
             Routes.RESULT,
             arguments = listOf(
@@ -216,6 +221,10 @@ fun AppNav() {
                     nav.navigate(Routes.SETUP) {
                         popUpTo(nav.graph.id) { inclusive = true }
                     }
+                },
+                onPendencias = {
+                    SettingsEasterEgg.fechar()
+                    nav.navigate(Routes.PENDENCIAS)
                 }
             )
         }

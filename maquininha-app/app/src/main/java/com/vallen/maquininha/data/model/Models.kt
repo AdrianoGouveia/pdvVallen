@@ -89,3 +89,24 @@ data class NovoItemPedido(
     val quantidade: Int,
     @SerialName("preco_unitario") val precoUnitario: Double
 )
+
+@Serializable
+data class PendenciaItem(
+    val id: Long,
+    @SerialName("codigo_barras")       val codigoBarras: String,
+    val tentativas: Int,
+    @SerialName("last_seen_at")        val lastSeenAt: String? = null,
+    @SerialName("produto_cadastrado")  val produtoCadastrado: Boolean,
+    @SerialName("produto_id")          val produtoId: Long? = null,
+    @SerialName("produto_nome")        val produtoNome: String? = null,
+    @SerialName("produto_emoji")       val produtoEmoji: String? = null,
+    @SerialName("produto_imagem_url")  val produtoImagemUrl: String? = null,
+    @SerialName("produto_categoria")   val produtoCategoria: String? = null,
+    @SerialName("produto_preco_ref")   val produtoPrecoRef: Double? = null
+)
+
+@Serializable
+data class CategoriaSimples(
+    val nome: String,
+    val emoji: String? = null
+)

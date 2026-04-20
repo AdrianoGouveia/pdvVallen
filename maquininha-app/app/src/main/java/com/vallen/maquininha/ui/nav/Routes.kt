@@ -12,6 +12,7 @@ object Routes {
     const val METHOD = "method"
     const val PAYMENT = "payment/{metodo}"
     const val RESULT = "result/{aprovado}/{valor}/{nsu}"
+    const val PENDENCIAS = "pendencias"
 
     fun payment(metodo: String) = "payment/$metodo"
 

@@ -29,6 +29,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.runtime.Composable
@@ -238,6 +240,7 @@ private fun Acoes(
     val scope = rememberCoroutineScope()
     val terminalNome by Prefs.terminalNome.collectAsStateWithLifecycle(initialValue = null)
     val unidadeNome by Prefs.unidadeNome.collectAsStateWithLifecycle(initialValue = null)
+    val ageCheck by Prefs.ageCheckEnabled.collectAsStateWithLifecycle(initialValue = true)
 
     Column(Modifier.padding(20.dp)) {
         InfoLinha("Terminal", terminalNome ?: "—")
@@ -248,6 +251,13 @@ private fun Acoes(
 
         Spacer(Modifier.height(20.dp))
 
+        ToggleItem(
+            titulo = "Controle de idade (+18)",
+            subtitulo = "Exige CPF e data de nascimento para produtos restritos",
+            ligado = ageCheck,
+            onToggle = { novo -> scope.launch { Prefs.setAgeCheckEnabled(novo) } }
+        )
+        Spacer(Modifier.height(8.dp))
         AcaoItem(
             icon = Icons.Filled.ErrorOutline,
             titulo = "Pendências do planograma",
@@ -383,6 +393,50 @@ private fun AcaoItem(
             Icons.AutoMirrored.Filled.ArrowForward,
             contentDescription = null,
             tint = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
+
+@Composable
+private fun ToggleItem(
+    titulo: String,
+    subtitulo: String,
+    ligado: Boolean,
+    onToggle: (Boolean) -> Unit
+) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(16.dp))
+            .clickable { onToggle(!ligado) }
+            .padding(14.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(
+                titulo,
+                color = MaterialTheme.colorScheme.onSurface,
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                subtitulo,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontSize = 12.sp
+            )
+        }
+        Spacer(Modifier.width(8.dp))
+        Switch(
+            checked = ligado,
+            onCheckedChange = onToggle,
+            colors = SwitchDefaults.colors(
+                checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
+                checkedTrackColor = MaterialTheme.colorScheme.primary,
+                uncheckedThumbColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                uncheckedTrackColor = MaterialTheme.colorScheme.surface
+            )
         )
     }
 }

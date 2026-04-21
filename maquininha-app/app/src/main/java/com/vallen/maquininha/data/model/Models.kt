@@ -110,3 +110,22 @@ data class CategoriaSimples(
     val nome: String,
     val emoji: String? = null
 )
+
+@Serializable
+data class Cliente(
+    val id: Long? = null,
+    val cpf: String? = null,
+    val nome: String,
+    @SerialName("data_nascimento") val dataNascimento: String,
+    val telefone: String? = null,
+    @SerialName("unidade_id") val unidadeId: Long? = null
+)
+
+@Serializable
+data class NovoCliente(
+    val cpf: String,
+    val nome: String,
+    @SerialName("data_nascimento") val dataNascimento: String,
+    val telefone: String? = null,
+    @SerialName("unidade_id") val unidadeId: Long? = null
+)

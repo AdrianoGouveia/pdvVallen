@@ -2,6 +2,7 @@ package com.vallen.maquininha.data
 
 import android.content.Context
 import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
@@ -18,6 +19,7 @@ object Prefs {
     private val KEY_TERMINAL_NOME = stringPreferencesKey("terminal_nome")
     private val KEY_UNIDADE_ID = longPreferencesKey("unidade_id")
     private val KEY_UNIDADE_NOME = stringPreferencesKey("unidade_nome")
+    private val KEY_AGE_CHECK = booleanPreferencesKey("age_check_enabled")
 
     private lateinit var appContext: Context
 
@@ -31,6 +33,12 @@ object Prefs {
     val terminalNome: Flow<String?> get() = get { it[KEY_TERMINAL_NOME] }
     val unidadeId: Flow<Long?> get() = get { it[KEY_UNIDADE_ID] }
     val unidadeNome: Flow<String?> get() = get { it[KEY_UNIDADE_NOME] }
+    // Default habilitado; operador pode desligar em Configurações
+    val ageCheckEnabled: Flow<Boolean> get() = appContext.dataStore.data.map { it[KEY_AGE_CHECK] ?: true }
+
+    suspend fun setAgeCheckEnabled(enabled: Boolean) {
+        appContext.dataStore.edit { p -> p[KEY_AGE_CHECK] = enabled }
+    }
 
     suspend fun saveFranqueado(id: Long, nome: String) {
         appContext.dataStore.edit { p ->

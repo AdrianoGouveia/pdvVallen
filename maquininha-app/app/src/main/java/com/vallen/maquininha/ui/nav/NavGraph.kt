@@ -32,6 +32,7 @@ import com.vallen.maquininha.ui.home.HomeScreen
 import com.vallen.maquininha.ui.payment.MetodoPagamento
 import com.vallen.maquininha.ui.payment.PaymentMethodScreen
 import com.vallen.maquininha.ui.payment.PaymentScreen
+import com.vallen.maquininha.ui.age.AgeVerificationScreen
 import com.vallen.maquininha.ui.pendencias.PendenciasScreen
 import com.vallen.maquininha.ui.result.ResultScreen
 import com.vallen.maquininha.ui.setup.SetupScreen
@@ -144,7 +145,8 @@ fun AppNav() {
                     } else {
                         nav.popBackStack()
                     }
-                }
+                },
+                onAgeVerify = { nav.navigate(Routes.AGE_VERIFY) }
             )
         }
 
@@ -187,6 +189,10 @@ fun AppNav() {
 
         composable(Routes.PENDENCIAS) {
             PendenciasScreen(onVoltar = { nav.popBackStack() })
+        }
+
+        composable(Routes.AGE_VERIFY) {
+            AgeVerificationScreen(onFechar = { nav.popBackStack() })
         }
 
         composable(

@@ -2,6 +2,7 @@ package com.vallen.maquininha.ui.home
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.vallen.maquininha.data.AgeCheckGate
 import com.vallen.maquininha.data.CartStore
 import com.vallen.maquininha.data.Prefs
 import com.vallen.maquininha.data.ProdutosRepository
@@ -59,8 +60,20 @@ class HomeViewModel : ViewModel() {
     }
 
     fun adicionar(produto: Produto) {
-        CartStore.add(produto)
-        _state.update { it.copy(aviso = "${produto.nome} · +1") }
+        viewModelScope.launch {
+            if (deveVerificarIdade(produto)) {
+                AgeCheckGate.request(produto)
+            } else {
+                CartStore.add(produto)
+                _state.update { it.copy(aviso = "${produto.nome} · +1") }
+            }
+        }
+    }
+
+    private suspend fun deveVerificarIdade(produto: Produto): Boolean {
+        if (!produto.restritoIdade) return false
+        if (CartStore.ageVerified.value) return false
+        return Prefs.ageCheckEnabled.first()
     }
 
     fun limparAviso() { _state.update { it.copy(aviso = null) } }
@@ -112,8 +125,12 @@ class HomeViewModel : ViewModel() {
                     val unidadeId = Prefs.unidadeId.first() ?: return@collect
                     val produto = ProdutosRepository.porCodigoBarras(unidadeId, codigo)
                     if (produto != null) {
-                        CartStore.add(produto)
-                        _state.update { it.copy(aviso = "✓ ${produto.nome} · +1") }
+                        if (deveVerificarIdade(produto)) {
+                            AgeCheckGate.request(produto)
+                        } else {
+                            CartStore.add(produto)
+                            _state.update { it.copy(aviso = "✓ ${produto.nome} · +1") }
+                        }
                     } else {
                         runCatching { ProdutosRepository.registrarPendencia(unidadeId, codigo) }
                         _state.update { it.copy(aviso = "Código $codigo não está no planograma") }

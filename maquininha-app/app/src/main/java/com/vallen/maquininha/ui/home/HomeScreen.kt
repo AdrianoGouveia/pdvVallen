@@ -44,6 +44,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.vallen.maquininha.data.AgeCheckGate
 import com.vallen.maquininha.data.model.Produto
 import com.vallen.maquininha.ui.components.StatusBar
 import kotlinx.coroutines.delay
@@ -52,9 +53,12 @@ import kotlinx.coroutines.delay
 fun HomeScreen(
     onVerCarrinho: () -> Unit,
     onVoltar: (() -> Unit)? = null,
+    onAgeVerify: () -> Unit = {},
     vm: HomeViewModel = viewModel()
 ) {
     val state by vm.state.collectAsStateWithLifecycle()
+    val agePending by AgeCheckGate.pending.collectAsStateWithLifecycle()
+    val ageDenied by AgeCheckGate.showDenied.collectAsStateWithLifecycle()
 
     // Back do sistema também respeita o carrinho preenchido
     if (onVoltar != null) {
@@ -65,9 +69,12 @@ fun HomeScreen(
         if (state.aviso != null) { delay(1600); vm.limparAviso() }
     }
 
-    LaunchedEffect(state.itensNoCarrinho) {
-        // Auto-navegar para o carrinho quando adicionar o primeiro item
-        // (replica o comportamento do totem HTML: setTela('cart') após adicionar)
+    LaunchedEffect(agePending) {
+        if (agePending != null) onAgeVerify()
+    }
+
+    LaunchedEffect(ageDenied) {
+        if (ageDenied) { delay(4000); AgeCheckGate.dismissDenied() }
     }
 
     Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
@@ -125,6 +132,47 @@ fun HomeScreen(
                         .padding(bottom = 16.dp, start = 12.dp, end = 12.dp)
                 )
             }
+
+            if (ageDenied) {
+                AgeDeniedBanner(
+                    modifier = Modifier.align(Alignment.Center).padding(16.dp),
+                    onDismiss = { AgeCheckGate.dismissDenied() }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun AgeDeniedBanner(modifier: Modifier = Modifier, onDismiss: () -> Unit) {
+    Box(
+        modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(20.dp))
+            .background(MaterialTheme.colorScheme.error)
+            .clickable(onClick = onDismiss)
+            .padding(24.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text("🔞", fontSize = 48.sp)
+            Spacer(Modifier.height(12.dp))
+            Text(
+                "VENDA DE PRODUTO MAIOR DE 18",
+                color = MaterialTheme.colorScheme.onError,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.ExtraBold,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                letterSpacing = 0.5.sp
+            )
+            Text(
+                "NÃO AUTORIZADO",
+                color = MaterialTheme.colorScheme.onError,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.ExtraBold,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                letterSpacing = 0.5.sp
+            )
         }
     }
 }
@@ -276,15 +324,34 @@ private fun ProdutoCard(p: Produto, onAdd: () -> Unit) {
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column(modifier = Modifier.weight(1f)) {
-            Text(
-                p.nome,
-                color = MaterialTheme.colorScheme.onSurface,
-                fontSize = 15.sp,
-                fontWeight = FontWeight.Bold,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-                lineHeight = 18.sp
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    p.nome,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    lineHeight = 18.sp,
+                    modifier = Modifier.weight(1f)
+                )
+                if (p.restritoIdade) {
+                    Spacer(Modifier.width(8.dp))
+                    Box(
+                        Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(MaterialTheme.colorScheme.error)
+                            .padding(horizontal = 8.dp, vertical = 2.dp)
+                    ) {
+                        Text(
+                            "+18",
+                            color = MaterialTheme.colorScheme.onError,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.ExtraBold
+                        )
+                    }
+                }
+            }
             Spacer(Modifier.height(8.dp))
             Text(
                 "R$ ${"%.2f".format(p.preco).replace('.', ',')}",

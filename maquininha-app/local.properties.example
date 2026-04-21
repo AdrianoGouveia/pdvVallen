@@ -1,0 +1,11 @@
+# Copie este arquivo para local.properties e preencha os valores reais.
+# local.properties NÃO é commitado (está no .gitignore).
+
+sdk.dir=/Users/SEU_USUARIO/Library/Android/sdk
+
+# Supabase — projeto do PDV Vallen
+SUPABASE_URL=https://SEU_PROJETO.supabase.co
+SUPABASE_ANON_KEY=sua-anon-key-publica-aqui
+
+# PlugPag (PagBank/PagSeguro) — código fornecido pelo integrador
+PLUGPAG_ACTIVATION_CODE=

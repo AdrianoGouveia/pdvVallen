@@ -134,7 +134,17 @@ fun AppNav() {
         composable(Routes.HOME) {
             HomeScreen(
                 onVerCarrinho = { nav.navigate(Routes.CART) },
-                onVoltar = { nav.popBackStack() }
+                onVoltar = {
+                    // Se o carrinho tem itens, volta para ele — evita cair no
+                    // EMPTY_CART (que ignora o estado) e descartar a seleção.
+                    if (CartStore.items.value.isNotEmpty()) {
+                        nav.navigate(Routes.CART) {
+                            popUpTo(Routes.EMPTY_CART) { inclusive = true }
+                        }
+                    } else {
+                        nav.popBackStack()
+                    }
+                }
             )
         }
 

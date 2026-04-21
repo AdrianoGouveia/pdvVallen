@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
+import { useFranqueado } from '../lib/franqueadoContext.jsx'
 import { PageHeader } from '../components/PageHeader.jsx'
 import { Modal } from '../components/Modal.jsx'
 import { Field, inputCls, Btn } from '../components/Field.jsx'
@@ -10,6 +11,7 @@ const empty = {
 }
 
 export function Produtos() {
+  const { franqueadoId } = useFranqueado()
   const [lista, setLista]   = useState([])
   const [busca, setBusca]   = useState('')
   const [modal, setModal]   = useState(null)
@@ -21,27 +23,38 @@ export function Produtos() {
   const PAGE = 50
 
   async function load(termo = busca, pg = page) {
+    if (!franqueadoId) { setLista([]); return }
     let q = supabase
       .from('produtos')
-      .select('*, stock_records:estoque(quantidade)')
+      .select('*, planograma(quantidade, controla_estoque)')
+      .eq('franqueado_id', franqueadoId)
       .range(pg * PAGE, pg * PAGE + PAGE - 1)
     if (termo) q = q.or(`nome.ilike.%${termo}%,codigo_barras.ilike.%${termo}%`)
-    const { data } = await q
+    const { data, error } = await q
+    if (error) { console.error('produtos load:', error); setLista([]); return }
 
-    // Calcular total de estoque e ordenar: com estoque primeiro, depois por nome
-    const enriched = (data || []).map(p => ({
-      ...p,
-      totalEstoque: (p.stock_records || []).reduce((s, e) => s + (e.quantidade || 0), 0),
-    })).sort((a, b) => b.totalEstoque - a.totalEstoque || a.nome.localeCompare(b.nome, 'pt-BR'))
+    // Soma estoque por produto: depósito CNPJ + quantidades no planograma das filiais
+    const enriched = (data || []).map(p => {
+      const planoQtd = (p.planograma || []).reduce(
+        (s, r) => s + (r.controla_estoque ? (r.quantidade || 0) : 0),
+        0
+      )
+      return { ...p, totalEstoque: (p.estoque_cnpj || 0) + planoQtd }
+    }).sort((a, b) => b.totalEstoque - a.totalEstoque || a.nome.localeCompare(b.nome, 'pt-BR'))
 
     setLista(enriched)
   }
 
   useEffect(() => {
-    load()
-    supabase.from('v_categorias').select('categoria')
-      .then(({ data }) => setCats((data || []).map(r => r.categoria).filter(Boolean)))
-  }, [])
+    if (!franqueadoId) return
+    load(busca, 0); setPage(0)
+    supabase.from('categorias')
+      .select('nome')
+      .eq('franqueado_id', franqueadoId)
+      .eq('ativo', true)
+      .order('ordem')
+      .then(({ data }) => setCats((data || []).map(r => r.nome).filter(Boolean)))
+  }, [franqueadoId])
 
   // ── Cálculo automático de preço/markup ─────────────────────────────────────
   function handleCusto(val) {
@@ -79,8 +92,12 @@ export function Produtos() {
       restrito_idade: form.restrito_idade,
       destaque      : form.destaque,
     }
-    if (!form.id) await supabase.from('produtos').insert(p)
-    else          await supabase.from('produtos').update(p).eq('id', form.id)
+    if (!form.id) {
+      p.franqueado_id = franqueadoId
+      await supabase.from('produtos').insert(p)
+    } else {
+      await supabase.from('produtos').update(p).eq('id', form.id)
+    }
     setSaving(false); setModal(null); load()
   }
 

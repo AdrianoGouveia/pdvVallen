@@ -1,5 +1,6 @@
 package com.vallen.maquininha.ui.home
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -54,6 +55,11 @@ fun HomeScreen(
     vm: HomeViewModel = viewModel()
 ) {
     val state by vm.state.collectAsStateWithLifecycle()
+
+    // Back do sistema também respeita o carrinho preenchido
+    if (onVoltar != null) {
+        BackHandler(enabled = true, onBack = onVoltar)
+    }
 
     LaunchedEffect(state.aviso) {
         if (state.aviso != null) { delay(1600); vm.limparAviso() }

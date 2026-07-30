@@ -7,6 +7,7 @@ import App from './App.jsx'
 const AdminApp      = lazy(() => import('./admin/AdminApp.jsx'))
 const MesaApp       = lazy(() => import('./mesa/MesaApp.jsx'))
 const ReposicaoApp  = lazy(() => import('./reposicao/ReposicaoApp.jsx'))
+const OperadorApp   = lazy(() => import('./operador/OperadorApp.jsx'))
 
 const Spinner = () => (
   <div className="flex items-center justify-center h-screen bg-vallen-dark">
@@ -23,6 +24,7 @@ createRoot(document.getElementById('root')).render(
           <Route path="/admin/*"    element={<AdminApp />} />
           <Route path="/mesa/:id"   element={<MesaApp />} />
           <Route path="/reposicao"  element={<ReposicaoApp />} />
+          <Route path="/operador"   element={<OperadorApp />} />
           <Route path="*"           element={<App />} />
         </Routes>
       </Suspense>

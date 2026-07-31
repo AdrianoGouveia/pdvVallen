@@ -14,6 +14,7 @@ export function Auditoria({ unidadeId, unidadeNome, onVoltar }) {
   const [fase, setFase]             = useState('contar') // 'contar' | 'recontar'
   const [primeira, setPrimeira]     = useState(null)   // {contada} da 1ª contagem
   const [qtd, setQtd]               = useState('')
+  const [validade, setValidade]     = useState('')     // opcional, capturada na 1ª contagem
   const [resultado, setResultado]   = useState(null)   // card de fim
   const [salvando, setSalvando]     = useState(false)
   const [contados, setContados]     = useState(0)
@@ -27,7 +28,7 @@ export function Auditoria({ unidadeId, unidadeNome, onVoltar }) {
   }, [unidadeId])
 
   function aoEscanear(row) {
-    setProduto(row); setFase('contar'); setPrimeira(null); setQtd(''); setResultado(null)
+    setProduto(row); setFase('contar'); setPrimeira(null); setQtd(''); setValidade(''); setResultado(null)
   }
 
   async function confirmar() {
@@ -38,9 +39,17 @@ export function Auditoria({ unidadeId, unidadeNome, onVoltar }) {
       const { data, error } = await supabase.rpc('registrar_contagem_item', {
         p_contagem_id: contagemId, p_produto_id: produto.produto_id, p_qtd_contada: n,
       })
-      setSalvando(false)
-      if (error) { tocarErro(); alert(error.message); return }
+      if (error) { setSalvando(false); tocarErro(); alert(error.message); return }
       const r = Array.isArray(data) ? data[0] : data
+      // Validade opcional — capturada só na 1ª contagem (a recontagem não pede de novo)
+      if (validade) {
+        const { error: ev } = await supabase.rpc('registrar_validade', {
+          p_unidade_id: unidadeId, p_produto_id: produto.produto_id,
+          p_data_validade: validade, p_quantidade: n,
+        })
+        if (ev) { setSalvando(false); tocarErro(); alert('Contagem salva, mas a validade falhou: ' + ev.message); return }
+      }
+      setSalvando(false)
       setContados(c => c + 1)
       if (r.status === 'divergente') {
         // pede 2ª contagem
@@ -69,7 +78,7 @@ export function Auditoria({ unidadeId, unidadeNome, onVoltar }) {
   }
 
   function fecharComResultado(res) {
-    setResultado(res); setProduto(null); setFase('contar'); setPrimeira(null); setQtd('')
+    setResultado(res); setProduto(null); setFase('contar'); setPrimeira(null); setQtd(''); setValidade('')
     setTimeout(() => setResultado(null), 2400)
   }
 
@@ -137,6 +146,14 @@ export function Auditoria({ unidadeId, unidadeNome, onVoltar }) {
                 className="w-16 h-16 rounded-2xl bg-vallen-card border border-vallen-border text-vallen-white text-3xl font-bold">+</button>
             </div>
           </div>
+
+          {!recontar && (
+            <label className="w-full max-w-xs">
+              <span className="block text-center text-vallen-muted text-sm mb-1">Validade (opcional)</span>
+              <input type="date" value={validade} onChange={e => setValidade(e.target.value)}
+                className="w-full bg-vallen-dark border border-vallen-border rounded-2xl px-4 py-3 text-base text-vallen-white text-center focus:outline-none focus:border-vallen-green" />
+            </label>
+          )}
         </div>
         <div className="p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] border-t border-vallen-border bg-vallen-black">
           <button onClick={confirmar} disabled={salvando || qtd === ''}

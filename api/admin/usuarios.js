@@ -60,12 +60,14 @@ export default async function handler(req, res) {
       case 'set_override':result = await setOverride(svc, authz, franqueado_id, body); break
       default: return res.status(400).json({ error: 'ação inválida' })
     }
-    // Auditoria (nunca grava a senha)
-    await svc.from('log_auditoria').insert({
-      ator: caller.id, franqueado_id, acao: 'usuario.' + action,
-      alvo: body.email || (body.user_id ?? body.uf_id ?? null)?.toString() || null,
-      detalhe: { role: body.role, ativo: body.ativo, unidade_ids: body.unidade_ids, permissao: body.permissao, concedida: body.concedida },
-    })
+    // Auditoria (best-effort; nunca grava a senha)
+    try {
+      await svc.from('log_auditoria').insert({
+        ator: authz.uid, franqueado_id, acao: 'usuario.' + action,
+        alvo: body.email || (body.user_id ?? body.uf_id ?? null)?.toString() || null,
+        detalhe: { role: body.role, ativo: body.ativo, unidade_ids: body.unidade_ids, permissao: body.permissao, concedida: body.concedida },
+      })
+    } catch { /* */ }
     return res.json(result)
   } catch (e) {
     return res.status(400).json({ error: String(e?.message || e).slice(0, 300) })
@@ -85,6 +87,14 @@ async function temPermissao(svc, uid, franqueadoId, role, permissao) {
 function alvoPermitido(authz, role) {
   const permitidos = CRIAVEIS[authz.isSuper ? 'super' : authz.papel] || []
   return permitidos.includes(role)
+}
+
+// Garante que as lojas pertencem ao franqueado (bloqueia vincular loja de outro tenant)
+async function validarUnidades(svc, franqueadoId, ids) {
+  if (!Array.isArray(ids) || !ids.length) return
+  const { data } = await svc.from('unidades').select('id').eq('franqueado_id', franqueadoId).in('id', ids)
+  const validos = new Set((data || []).map(u => u.id))
+  if (ids.some(id => !validos.has(id))) throw new Error('alguma loja não pertence a esta franquia')
 }
 
 async function listar(svc, franqueadoId) {
@@ -131,11 +141,13 @@ async function criar(svc, authz, franqueadoId, body) {
   const { data: uf, error: e2 } = await svc.from('usuarios_franqueados')
     .insert({ user_id: userId, franqueado_id: franqueadoId, role, ativo: true })
     .select('id').single()
-  if (e2) throw new Error(e2.message)
+  if (e2) { try { await svc.auth.admin.deleteUser(userId) } catch { /* */ } ; throw new Error(e2.message) }
 
   if (role === 'repositor' && Array.isArray(unidade_ids) && unidade_ids.length) {
-    await svc.from('usuario_unidades').insert(
+    await validarUnidades(svc, franqueadoId, unidade_ids)
+    const { error: e4 } = await svc.from('usuario_unidades').insert(
       unidade_ids.map(id => ({ usuario_franqueado_id: uf.id, unidade_id: id })))
+    if (e4) throw new Error(e4.message)
   }
   return { ok: true, user_id: userId }
 }
@@ -148,6 +160,15 @@ async function atualizar(svc, authz, franqueadoId, body) {
   // gerente só mexe em repositor
   if (!alvoPermitido(authz, alvo.role)) throw new Error('sem alçada sobre este usuário')
 
+  // Guardrail: não deixar a franquia sem dono (último franqueado ativo)
+  const perdeDono = alvo.role === 'franqueado' && (ativo === false || (role !== undefined && role !== 'franqueado'))
+  if (perdeDono) {
+    const { count } = await svc.from('usuarios_franqueados')
+      .select('id', { count: 'exact', head: true })
+      .eq('franqueado_id', franqueadoId).eq('role', 'franqueado').eq('ativo', true).neq('id', uf_id)
+    if (!count) throw new Error('Não dá para remover o último dono (franqueado) da franquia. Crie/atribua outro dono antes.')
+  }
+
   const patch = {}
   if (role !== undefined) {
     if (!alvoPermitido(authz, role)) throw new Error(`não pode atribuir ${role}`)
@@ -159,9 +180,11 @@ async function atualizar(svc, authz, franqueadoId, body) {
     if (error) throw new Error(error.message)
   }
   if (Array.isArray(unidade_ids)) {
+    await validarUnidades(svc, franqueadoId, unidade_ids)
     await svc.from('usuario_unidades').delete().eq('usuario_franqueado_id', uf_id)
     if (unidade_ids.length) {
-      await svc.from('usuario_unidades').insert(unidade_ids.map(id => ({ usuario_franqueado_id: uf_id, unidade_id: id })))
+      const { error: e5 } = await svc.from('usuario_unidades').insert(unidade_ids.map(id => ({ usuario_franqueado_id: uf_id, unidade_id: id })))
+      if (e5) throw new Error(e5.message)
     }
   }
   return { ok: true }

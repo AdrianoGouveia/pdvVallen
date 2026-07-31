@@ -11,6 +11,7 @@ import { desbloquearAudio, tocarSucesso, tocarErro } from '../../mesa/utils/audi
 export function ScanBox({ unidadeId, onProduto, onDesconhecido, hint }) {
   const videoRef  = useRef(null)
   const readerRef = useRef(null)
+  const streamRef = useRef(null)
   const lastRef   = useRef('')
   const [feedback, setFeedback] = useState(null)
   const [manual, setManual]     = useState('')
@@ -37,25 +38,29 @@ export function ScanBox({ unidadeId, onProduto, onDesconhecido, hint }) {
       resolver(code)
     }
 
+    // Guarda o stream num ref (sobrevive ao unmount) pra parar a câmera com certeza.
+    const capturar = () => { setLoading(false); streamRef.current = videoRef.current?.srcObject || streamRef.current }
     reader.decodeFromConstraints(
       { video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } } },
       videoRef.current, onDecode,
     )
-      .then(() => setLoading(false))
+      .then(capturar)
       .catch(() =>
         reader.decodeFromConstraints({ video: true }, videoRef.current, onDecode)
-          .then(() => setLoading(false))
+          .then(capturar)
           .catch(() => { setLoading(false); setSemCamera(true) }),
       )
 
     return () => {
       try { reader.reset() } catch (_) {}
-      // iOS/Safari: reset() nem sempre solta o stream → para as tracks na mão,
-      // senão a câmera continua e re-escaneia o mesmo código (resetava o painel).
+      // iOS/Safari: reset() nem sempre solta o stream → para as tracks na mão (via
+      // streamRef, que sobrevive ao unmount), senão a câmera continua e re-escaneia
+      // o mesmo código, resetando o painel de contagem.
       try {
-        const v = videoRef.current
-        const s = v && v.srcObject
-        if (s && s.getTracks) { s.getTracks().forEach(t => t.stop()); v.srcObject = null }
+        const s = streamRef.current || videoRef.current?.srcObject
+        if (s && s.getTracks) s.getTracks().forEach(t => t.stop())
+        if (videoRef.current) videoRef.current.srcObject = null
+        streamRef.current = null
       } catch (_) {}
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

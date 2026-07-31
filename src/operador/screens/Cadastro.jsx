@@ -149,7 +149,7 @@ export function Cadastro({ unidadeId, unidadeNome, onVoltar }) {
           </label>
           <label className="block">
             <span className="text-vallen-white font-semibold text-sm">Validade <span className="text-vallen-muted font-normal">(opcional)</span></span>
-            <DateInput value={form.validade} onChange={v => set('validade', v)}
+            <DateInput key={codigo} value={form.validade} onChange={v => set('validade', v)}
               className="mt-1 w-full bg-vallen-dark border border-vallen-border rounded-xl px-3 py-3 text-base text-vallen-white focus:outline-none focus:border-vallen-green" />
           </label>
         </div>

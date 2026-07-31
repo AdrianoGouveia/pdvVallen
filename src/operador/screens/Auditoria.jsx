@@ -151,7 +151,7 @@ export function Auditoria({ unidadeId, unidadeNome, onVoltar }) {
           {!recontar && (
             <div className="w-full max-w-xs">
               <span className="block text-center text-vallen-muted text-sm mb-1">Validade (opcional)</span>
-              <DateInput value={validade} onChange={setValidade}
+              <DateInput key={produto?.produto_id ?? 'v'} value={validade} onChange={setValidade}
                 className="w-full bg-vallen-dark border border-vallen-border rounded-2xl px-4 py-3 text-base text-vallen-white text-center focus:outline-none focus:border-vallen-green" />
             </div>
           )}

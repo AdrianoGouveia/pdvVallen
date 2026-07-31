@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 
 // Campo de data DIGITÁVEL (DD/MM/AAAA) — melhor no iOS que o <input type="date">.
 // Máscara automática + correção: se a data for inválida (ex.: 31/02, mês 13),
@@ -24,11 +24,11 @@ function corrigir(dd, mm, yyyy) {
 }
 
 export function DateInput({ value, onChange, className, placeholder = 'DD/MM/AAAA' }) {
+  // texto é LOCAL (não re-sincroniza com value a cada tecla — isso apagava o que
+  // estava sendo digitado). O pai reseta remontando via `key`.
   const [texto, setTexto] = useState(isoToBR(value))
   const [sug, setSug]     = useState(null)
   const [info, setInfo]   = useState(null)
-
-  useEffect(() => { setTexto(isoToBR(value)) }, [value])
 
   function processar(raw) {
     const digits = raw.replace(/\D/g, '').slice(0, 8)

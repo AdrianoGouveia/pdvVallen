@@ -8,7 +8,10 @@ import { createClient } from '@supabase/supabase-js'
 //   gerente    → repositor
 // Ações (POST { action, ... }): list | create | update | reset_senha | set_override
 
-const URL = process.env.SUPABASE_URL
+// Valida o solicitante do MESMO jeito que o front (PostgREST, URL do Vite) — evita
+// o mismatch do GoTrue/getUser que dava "token inválido".
+const URL = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL
+const ANON = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY
 const SERVICE = process.env.SUPABASE_SERVICE_ROLE_KEY
 
 const CRIAVEIS = {
@@ -19,26 +22,33 @@ const CRIAVEIS = {
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'method_not_allowed' })
-  if (!URL || !SERVICE) return res.status(500).json({ error: 'faltam SUPABASE_URL / SERVICE_ROLE_KEY' })
+  if (!URL || !SERVICE || !ANON) return res.status(500).json({ error: 'faltam env (URL/ANON/SERVICE)' })
 
   const token = (req.headers.authorization || '').replace(/^Bearer\s+/i, '')
   if (!token) return res.status(401).json({ error: 'sem token' })
-
-  const svc = createClient(URL, SERVICE, { auth: { persistSession: false } })
-
-  // 1. Autentica o solicitante
-  const { data: userData, error: uErr } = await svc.auth.getUser(token)
-  const caller = userData?.user
-  if (uErr || !caller) return res.status(401).json({ error: 'token inválido' })
 
   const body = req.body && typeof req.body === 'object' ? req.body : JSON.parse(req.body || '{}')
   const { action, franqueado_id } = body
   if (!franqueado_id) return res.status(400).json({ error: 'franqueado_id obrigatório' })
 
-  // 2. Autoriza: super, ou papel com usuarios.gerenciar nesse franqueado
-  const authz = await autoridade(svc, caller.id, franqueado_id)
-  authz.uid = caller.id
-  if (!authz.podeGerenciar) return res.status(403).json({ error: 'sem permissão para gerenciar usuários' })
+  // Cliente de escrita (service_role) e cliente "como o solicitante" (valida o token via PostgREST)
+  const svc = createClient(URL, SERVICE, { auth: { persistSession: false } })
+  const asUser = createClient(URL, ANON, {
+    global: { headers: { Authorization: `Bearer ${token}` } }, auth: { persistSession: false },
+  })
+
+  // uid do próprio token (a verificação REAL é o RPC abaixo, que roda como o solicitante)
+  let uid = null
+  try { uid = JSON.parse(Buffer.from(token.split('.')[1], 'base64url').toString('utf8')).sub } catch { /* */ }
+  if (!uid) return res.status(401).json({ error: 'token malformado' })
+
+  // Autoriza como o solicitante: valida o token (PostgREST) + respeita o RBAC
+  const { data: podeGer, error: aErr } = await asUser.rpc('tem_permissao', { p_franqueado_id: franqueado_id, p_permissao: 'usuarios.gerenciar' })
+  if (aErr) return res.status(401).json({ error: 'sessão inválida ou expirada — saia e entre de novo' })
+  if (podeGer !== true) return res.status(403).json({ error: 'sem permissão para gerenciar usuários' })
+  const { data: isSuper } = await asUser.rpc('eh_super_admin')
+  const { data: papelRaw } = await asUser.rpc('meu_papel', { p_franqueado_id: franqueado_id })
+  const authz = { uid, isSuper: isSuper === true, papel: isSuper === true ? 'super' : papelRaw, podeGerenciar: true }
 
   try {
     let result
@@ -60,16 +70,6 @@ export default async function handler(req, res) {
   } catch (e) {
     return res.status(400).json({ error: String(e?.message || e).slice(0, 300) })
   }
-}
-
-// Autoridade do solicitante no franqueado (override-first, igual a tem_permissao)
-async function autoridade(svc, uid, franqueadoId) {
-  const { data: sa } = await svc.from('super_admins').select('user_id').eq('user_id', uid).maybeSingle()
-  if (sa) return { isSuper: true, papel: 'super', podeGerenciar: true }
-  const { data: uf } = await svc.from('usuarios_franqueados')
-    .select('role, ativo').eq('user_id', uid).eq('franqueado_id', franqueadoId).maybeSingle()
-  if (!uf || !uf.ativo) return { podeGerenciar: false }
-  return { isSuper: false, papel: uf.role, podeGerenciar: await temPermissao(svc, uid, franqueadoId, uf.role, 'usuarios.gerenciar') }
 }
 
 // Espelha a lógica de tem_permissao(): override (concede/revoga) vence o papel.

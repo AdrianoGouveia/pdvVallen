@@ -18,9 +18,11 @@ async function api(action, franqueadoId, extra = {}) {
 }
 
 export function Usuarios() {
-  const { franqueadoId, unidades, papel, isSuperAdmin } = useFranqueado()
+  const { franqueadoId, franqueados, unidades, papel, isSuperAdmin } = useFranqueado()
   const papelAtual = isSuperAdmin ? 'admin_vallen' : papel
   const criaveis = CRIAVEIS[papelAtual] || []
+  const franq = franqueados.find(f => f.id === franqueadoId)
+  const franqNome = franq?.nome_fantasia || franq?.razao_social || 'franquia'
 
   const [lista, setLista] = useState(null)
   const [erro, setErro]   = useState('')
@@ -37,18 +39,21 @@ export function Usuarios() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-vallen-white">Usuários</h1>
-          <p className="text-vallen-muted text-sm">Papéis, lojas e permissões deste franqueado.</p>
+          <p className="text-sm">
+            <span className="text-vallen-muted">Papéis, lojas e permissões de </span>
+            <span className="text-vallen-green font-semibold">🏛️ {franqNome}</span>
+          </p>
         </div>
         {criaveis.length > 0 && (
           <button onClick={() => setCriando(true)}
-            className="px-4 py-2.5 bg-vallen-green text-white font-bold rounded-lg text-sm">+ Novo usuário</button>
+            className="px-4 py-2.5 bg-vallen-green text-white font-bold rounded-lg text-sm">+ Novo usuário em {franqNome}</button>
         )}
       </div>
 
       {erro && <p className="text-red-400 text-sm mb-4">{erro}</p>}
 
       {criando && (
-        <NovoUsuario franqueadoId={franqueadoId} criaveis={criaveis} unidades={unidades}
+        <NovoUsuario franqueadoId={franqueadoId} franqNome={franqNome} criaveis={criaveis} unidades={unidades}
           onClose={() => setCriando(false)} onCriado={() => { setCriando(false); carregar() }} />
       )}
 
@@ -68,7 +73,7 @@ export function Usuarios() {
   )
 }
 
-function NovoUsuario({ franqueadoId, criaveis, unidades, onClose, onCriado }) {
+function NovoUsuario({ franqueadoId, franqNome, criaveis, unidades, onClose, onCriado }) {
   const [form, setForm] = useState({ email: '', senha: '', role: criaveis[0] || 'repositor', unidade_ids: [] })
   const [busy, setBusy] = useState(false)
   const [err, setErr]   = useState('')
@@ -85,7 +90,7 @@ function NovoUsuario({ franqueadoId, criaveis, unidades, onClose, onCriado }) {
 
   return (
     <div className="bg-vallen-card border border-vallen-border rounded-xl p-5 mb-5 space-y-3">
-      <h3 className="text-vallen-white font-bold">Novo usuário</h3>
+      <h3 className="text-vallen-white font-bold">Novo usuário <span className="text-vallen-green">· {franqNome}</span></h3>
       <div className="grid grid-cols-2 gap-3">
         <input value={form.email} onChange={e => set('email', e.target.value)} placeholder="E-mail" type="email"
           className="bg-vallen-dark border border-vallen-border rounded-lg px-3 py-2.5 text-vallen-white text-sm" />

@@ -12,6 +12,7 @@ export function Franqueados() {
   const [form, setForm]     = useState(vazio)
   const [saving, setSaving] = useState(false)
   const [err, setErr]       = useState('')
+  const [msg, setMsg]       = useState('')
 
   function load() {
     supabase.from('franqueados')
@@ -33,13 +34,19 @@ export function Franqueados() {
       documento: form.documento.trim(),
       ativo: form.ativo,
     }
-    const q = modal === 'new'
-      ? supabase.from('franqueados').insert(payload)
-      : supabase.from('franqueados').update(payload).eq('id', form.id)
-    const { error } = await q
-    setSaving(false)
-    if (error) { setErr(error.message.includes('duplicate') ? 'Já existe uma franquia com esse documento' : error.message); return }
-    setModal(null); load()
+    if (modal === 'new') {
+      const { data, error } = await supabase.from('franqueados').insert(payload).select('id').single()
+      setSaving(false)
+      if (error) { setErr(error.message.includes('duplicate') ? 'Já existe uma franquia com esse documento' : error.message); return }
+      setModal(null); load()
+      selectFranqueado(data.id)  // entra na franquia recém-criada
+      setMsg(`Você está agora na franquia "${payload.nome_fantasia || payload.razao_social}". Cadastre as lojas (Condomínios) e o dono/usuários (Usuários) dela.`)
+    } else {
+      const { error } = await supabase.from('franqueados').update(payload).eq('id', form.id)
+      setSaving(false)
+      if (error) { setErr(error.message.includes('duplicate') ? 'Já existe uma franquia com esse documento' : error.message); return }
+      setModal(null); load()
+    }
   }
 
   async function toggle(item) {
@@ -56,6 +63,14 @@ export function Franqueados() {
         </div>
         <button onClick={() => abrir(null)} className="px-4 py-2.5 bg-vallen-green text-white font-bold rounded-lg text-sm">+ Nova franquia</button>
       </div>
+
+      {msg && (
+        <div className="mb-4 flex items-start gap-3 bg-vallen-green/15 border border-vallen-green/40 rounded-xl px-4 py-3">
+          <span className="text-xl">✅</span>
+          <p className="text-vallen-white text-sm flex-1">{msg}</p>
+          <button onClick={() => setMsg('')} className="text-vallen-muted text-sm">✕</button>
+        </div>
+      )}
 
       {lista === null ? (
         <p className="text-vallen-muted">Carregando…</p>

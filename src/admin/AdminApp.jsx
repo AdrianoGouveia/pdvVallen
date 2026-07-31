@@ -41,7 +41,9 @@ function AdminGate() {
 
   if (loading) return <Tela>Carregando…</Tela>
   if (!session) return <Login />
-  if (!franqueadoId || !unidadeId) return <SelecaoContexto />
+  // Basta a franquia selecionada. A unidade é opcional aqui (páginas que precisam
+  // dela pedem na própria tela) — senão franquia nova (0 lojas) trancava o acesso.
+  if (!franqueadoId) return <SelecaoContexto />
   if (authzLoading) return <Tela>Carregando permissões…</Tela>
 
   // O painel é para franqueado/gerente/super. Repositor não entra aqui.

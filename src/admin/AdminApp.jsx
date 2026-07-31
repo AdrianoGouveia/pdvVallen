@@ -12,6 +12,7 @@ import { Categorias }    from './pages/Categorias.jsx'
 import { RelatorioVendas } from './pages/RelatorioVendas.jsx'
 import { Usuarios }      from './pages/Usuarios.jsx'
 import { Franqueados }   from './pages/Franqueados.jsx'
+import { FranquiaDetalhe } from './pages/FranquiaDetalhe.jsx'
 
 // Cada item exige uma permissão (RBAC). O menu e as rotas escondem o que a
 // pessoa não pode. `perm: null` = visível a qualquer papel do painel.
@@ -108,6 +109,7 @@ function AdminShell() {
         <Routes>
           <Route index                 element={<Navigate to={itens[0]?.to.replace('/admin/','') || 'pendencias'} replace />} />
           <Route path="franqueados"    element={<Guard perm="franqueados.gerenciar"><Franqueados /></Guard>} />
+          <Route path="franqueados/:id" element={<Guard perm="franqueados.gerenciar"><FranquiaDetalhe /></Guard>} />
           <Route path="pendencias"     element={<Guard perm="pendencias.resolver"><Pendencias /></Guard>} />
           <Route path="condominios"    element={<Guard perm="unidades.gerenciar"><Condominios /></Guard>} />
           <Route path="categorias"     element={<Guard perm="produtos.editar"><Categorias /></Guard>} />

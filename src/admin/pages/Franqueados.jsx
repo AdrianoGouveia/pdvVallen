@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { useFranqueado } from '../lib/franqueadoContext.jsx'
 
@@ -20,6 +21,7 @@ async function apiFranquia(body) {
 // + 1ª loja) via endpoint; edição simples via RLS (franqueados.gerenciar = super).
 export function Franqueados() {
   const { selectFranqueado } = useFranqueado()
+  const navigate = useNavigate()
   const [lista, setLista]   = useState(null)
   const [modal, setModal]   = useState(null)   // registro em edição
   const [wizard, setWizard] = useState(false)
@@ -57,10 +59,10 @@ export function Franqueados() {
     load()
   }
 
-  function aoCriar(franqId, nome) {
-    setWizard(false); load()
+  function aoCriar(franqId) {
+    setWizard(false)
     selectFranqueado(franqId)
-    setMsg(`Franquia "${nome}" criada com o dono. Você já está nela — agora cadastre lojas e o restante do time.`)
+    navigate(`/admin/franqueados/${franqId}`)  // entra direto no painel da franquia nova
   }
 
   return (
@@ -95,7 +97,7 @@ export function Franqueados() {
               {f.ativo && !f.responsavel_user_id && (
                 <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-orange-500/20 text-orange-400 border border-orange-500/40">sem dono</span>
               )}
-              <button onClick={() => selectFranqueado(f.id)} className="text-vallen-green text-sm font-semibold px-2">entrar</button>
+              <button onClick={() => navigate(`/admin/franqueados/${f.id}`)} className="text-vallen-green text-sm font-semibold px-2">entrar →</button>
               <button onClick={() => editar(f)} className="text-vallen-muted text-sm px-2">editar</button>
             </div>
           ))}

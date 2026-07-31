@@ -228,7 +228,7 @@ export class DwpdvConnector extends PosConnector {
     // CFOP(g3)/CSOSN(class)/NCM/precocompra → no upsert o DWPDV preserva o fiscal
     // existente (a contabilidade define lá). ⚠️ CONFIRMAR que o handler mantém campos
     // AUSENTES no upsert (não os zera) — teste pendente. Nunca sobrescrever fiscal.
-    return {
+    const item = {
       codigo: String(p.codigoBarras || '').trim(),
       codref: p.codref ?? null,
       nome: p.nome,
@@ -241,6 +241,10 @@ export class DwpdvConnector extends PosConnector {
       // no Vallen é exposto no PDV → op2 = "1" sempre.
       op2: '1',
     }
+    // Custo (precocompra): só envia quando o Vallen tem valor — senão OMITE, pra o
+    // DWPDV preservar o custo/fiscal dele no upsert (não zerar).
+    if (p.precoCusto != null && Number(p.precoCusto) > 0) item.precocompra = brlFmt(p.precoCusto)
+    return item
   }
 
   // push (upsert) de produtos p/ o DWPDV. dryRun=true valida sem gravar.

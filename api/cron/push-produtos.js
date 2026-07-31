@@ -30,10 +30,11 @@ export default async function handler(req, res) {
     if (!ids.length) return res.json({ ok: true, pendentes: 0, enviados: 0 })
 
     const { data: produtos, error: e2 } = await sb.from('produtos')
-      .select('id,codigo_barras,nome,preco,categoria,catalogo_ativo,estoque:estoque_cnpj').in('id', ids)
+      .select('id,codigo_barras,nome,preco,preco_custo,categoria,catalogo_ativo,estoque:estoque_cnpj').in('id', ids)
     if (e2) throw e2
     const canon = (produtos || []).filter(p => p.codigo_barras).map(p => ({
       _id: p.id, codigoBarras: p.codigo_barras, nome: p.nome, precoReferencia: p.preco,
+      precoCusto: p.preco_custo,
       estoqueDeposito: p.estoque ?? 0, categoria: p.categoria, ativo: p.catalogo_ativo === true,
     }))
 

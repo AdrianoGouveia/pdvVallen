@@ -87,10 +87,10 @@ export default async function handler(req, res) {
 
     return res.json({ ok: true, franqueado_id: franqId, user_id: userId, unidade_id: lojaId })
   } catch (err) {
-    try { if (lojaId) await svc.from('unidades').delete().eq('id', lojaId) } catch { /* */ }
-    try { if (userId && franqId) await svc.from('usuarios_franqueados').delete().eq('user_id', userId).eq('franqueado_id', franqId) } catch { /* */ }
-    try { if (userId) await svc.auth.admin.deleteUser(userId) } catch { /* */ }
+    // Apaga a franquia primeiro: o ON DELETE CASCADE remove loja + vínculo (e o
+    // trigger "protege último dono" pula quando a franquia está sendo excluída).
     try { if (franqId) await svc.from('franqueados').delete().eq('id', franqId) } catch { /* */ }
+    try { if (userId) await svc.auth.admin.deleteUser(userId) } catch { /* */ }
     return res.status(400).json({ error: String(err?.message || err).slice(0, 300) })
   }
 }

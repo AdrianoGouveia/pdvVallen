@@ -109,7 +109,7 @@ function TabEstoque({ unidades }) {
   async function loadEstoque(uid) {
     if (!uid) return
     const { data } = await supabase
-      .from('estoque')
+      .from('planograma')
       .select('*, produtos(id,nome,codigo_barras,categoria,restrito_idade,preco,preco_custo,markup,unidade_medida)')
       .eq('unidade_id', uid)
       .order('produtos(nome)')
@@ -118,7 +118,7 @@ function TabEstoque({ unidades }) {
 
   async function salvarQtd(item, qtd) {
     setSaving(s => ({ ...s, [item.id]: true }))
-    await supabase.from('estoque').update({ quantidade: parseInt(qtd) || 0 }).eq('id', item.id)
+    await supabase.from('planograma').update({ quantidade: parseInt(qtd) || 0 }).eq('id', item.id)
     setSaving(s => ({ ...s, [item.id]: false }))
     setLista(l => l.map(i => i.id === item.id ? { ...i, quantidade: parseInt(qtd) || 0 } : i))
   }
@@ -267,17 +267,17 @@ function TabImportar({ armazemId, onPendentesChange }) {
     for (const row of matched.found) {
       if (row.quantidade <= 0) continue
       const { data: existing } = await supabase
-        .from('estoque')
+        .from('planograma')
         .select('id, quantidade')
         .eq('unidade_id', armazemId)
         .eq('produto_id', row.produto.id)
         .maybeSingle()
       if (existing) {
-        await supabase.from('estoque')
+        await supabase.from('planograma')
           .update({ quantidade: existing.quantidade + row.quantidade })
           .eq('id', existing.id)
       } else {
-        await supabase.from('estoque')
+        await supabase.from('planograma')
           .insert({ unidade_id: armazemId, produto_id: row.produto.id, quantidade: row.quantidade })
       }
     }
@@ -801,7 +801,7 @@ function TabArmazem({ unidades, armazemId }) {
   async function loadArmazem() {
     setLoading(true)
     const { data } = await supabase
-      .from('estoque')
+      .from('planograma')
       .select('*, produtos(id,nome,codigo_barras,unidade_medida)')
       .eq('unidade_id', armazemId)
       .gt('quantidade', 0)

@@ -16,7 +16,7 @@ export function EntradaEstoque({ unidadeId, unidadeNome, onVoltar }) {
   const [codigo, setCodigo]   = useState(null)
   const [cats, setCats]       = useState([])
   const [salvando, setSalvando] = useState(false)
-  const [resultado, setResultado] = useState(null)
+  const [toast, setToast] = useState(null)
   const abertoRef = useRef(false)
 
   const [qtd, setQtd]       = useState('')
@@ -35,7 +35,8 @@ export function EntradaEstoque({ unidadeId, unidadeNome, onVoltar }) {
     setModo('scan'); setProduto(null); setCodigo(null)
     setQtd(''); setCusto(''); setVal(''); setNome(''); setVenda(''); setCat('')
   }
-  function fechar(res) { limpar(); setResultado(res); setTimeout(() => setResultado(null), 2400) }
+  // salvou → volta pra câmera na hora (com um aviso rápido) pro próximo produto
+  function concluir(msg) { limpar(); setToast(msg); setTimeout(() => setToast(null), 2600) }
 
   function aoProduto(row) {
     if (abertoRef.current) return
@@ -65,7 +66,7 @@ export function EntradaEstoque({ unidadeId, unidadeNome, onVoltar }) {
     setSalvando(false)
     if (error) { tocarErro(); alert(error.message); return }
     const novo = Array.isArray(data) ? data[0] : data
-    tocarSucesso(); fechar({ nome: produto.nome, qtd: n, novo })
+    tocarSucesso(); concluir(`✅ +${n} ${produto.nome} · estoque ${novo}`)
   }
 
   async function cadastrarComEntrada() {
@@ -86,26 +87,10 @@ export function EntradaEstoque({ unidadeId, unidadeNome, onVoltar }) {
     if (validade && produtoId) {
       await supabase.rpc('registrar_validade', { p_unidade_id: unidadeId, p_produto_id: produtoId, p_data_validade: validade, p_quantidade: n })
     }
-    setSalvando(false); tocarSucesso(); fechar({ nome: nome.trim(), qtd: n, novo: n, cadastro: true })
+    setSalvando(false); tocarSucesso(); concluir(`✅ ${nome.trim()} cadastrado · +${n} no estoque`)
   }
 
   const markupView = (() => { const c = num(custo), v = num(venda); return c > 0 && v > 0 ? ((v - c) / c) * 100 : null })()
-
-  // ---- resultado
-  if (resultado) {
-    return (
-      <div className="flex flex-col h-full bg-vallen-dark">
-        <Header titulo="Entrada de estoque" emoji="📥" unidadeNome={unidadeNome} onVoltar={onVoltar} />
-        <button onClick={() => setResultado(null)} className="flex-1 flex flex-col items-center justify-center gap-4 text-white bg-vallen-green p-6 text-center">
-          <span className="text-7xl">{resultado.cadastro ? '✅' : '📥'}</span>
-          <p className="text-2xl font-bold">{resultado.nome}</p>
-          <p className="text-4xl font-black">+{resultado.qtd}</p>
-          <p className="text-lg font-bold">{resultado.cadastro ? 'Cadastrado com estoque inicial' : `Estoque agora: ${resultado.novo}`}</p>
-          <span className="text-sm opacity-80 mt-2">toque para continuar</span>
-        </button>
-      </div>
-    )
-  }
 
   // ---- entrada (produto conhecido)
   if (modo === 'entrada' && produto) {
@@ -205,11 +190,14 @@ export function EntradaEstoque({ unidadeId, unidadeNome, onVoltar }) {
     )
   }
 
-  // ---- escaneando
+  // ---- escaneando (câmera aberta pro próximo produto; toast do último salvo)
   return (
     <div className="flex flex-col h-full bg-vallen-dark">
       <Header titulo="Entrada de estoque" emoji="📥" unidadeNome={unidadeNome} onVoltar={onVoltar} />
-      <ScanBox unidadeId={unidadeId} onProduto={aoProduto} onDesconhecido={aoDesconhecido} hint="Escaneie o produto que chegou" />
+      {toast && (
+        <div className="bg-vallen-green text-white px-4 py-3 text-center font-semibold flex-shrink-0 text-sm">{toast}</div>
+      )}
+      <ScanBox unidadeId={unidadeId} onProduto={aoProduto} onDesconhecido={aoDesconhecido} hint="Escaneie o próximo produto" />
     </div>
   )
 }

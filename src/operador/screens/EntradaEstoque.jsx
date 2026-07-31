@@ -108,7 +108,7 @@ export function EntradaEstoque({ unidadeId, unidadeNome, onVoltar }) {
             <div className="mt-1 flex items-center gap-3">
               <button onClick={() => setQtd(q => String(Math.max(0, (parseInt(q, 10) || 0) - 1)))} className="w-14 h-14 rounded-xl bg-vallen-card border border-vallen-border text-vallen-white text-2xl">−</button>
               <input value={qtd} onChange={e => setQtd(e.target.value.replace(/\D/g, ''))} inputMode="numeric" placeholder="0" autoFocus
-                className="flex-1 h-14 text-center bg-vallen-dark border-2 border-vallen-green rounded-xl text-vallen-white text-3xl font-black focus:outline-none" />
+                className="flex-1 min-w-0 h-14 text-center bg-vallen-dark border-2 border-vallen-green rounded-xl text-vallen-white text-3xl font-black focus:outline-none" />
               <button onClick={() => setQtd(q => String((parseInt(q, 10) || 0) + 1))} className="w-14 h-14 rounded-xl bg-vallen-card border border-vallen-border text-vallen-white text-2xl">+</button>
             </div>
           </label>

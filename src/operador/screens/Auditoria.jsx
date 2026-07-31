@@ -3,6 +3,7 @@ import { supabase } from '../../lib/supabase'
 import { tocarSucesso, tocarErro } from '../../mesa/utils/audio.js'
 import { Header } from '../components/Header'
 import { ScanBox } from '../components/ScanBox'
+import { DateInput } from '../components/DateInput'
 
 // Auditoria de estoque — contagem NÃO-destrutiva com divergência.
 // Conta → bateu (conferido) | divergiu → 2ª contagem → confirma → gerente valida.
@@ -148,11 +149,11 @@ export function Auditoria({ unidadeId, unidadeNome, onVoltar }) {
           </div>
 
           {!recontar && (
-            <label className="w-full max-w-xs">
+            <div className="w-full max-w-xs">
               <span className="block text-center text-vallen-muted text-sm mb-1">Validade (opcional)</span>
-              <input type="date" value={validade} onChange={e => setValidade(e.target.value)}
+              <DateInput value={validade} onChange={setValidade}
                 className="w-full bg-vallen-dark border border-vallen-border rounded-2xl px-4 py-3 text-base text-vallen-white text-center focus:outline-none focus:border-vallen-green" />
-            </label>
+            </div>
           )}
         </div>
         <div className="p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] border-t border-vallen-border bg-vallen-black">

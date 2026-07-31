@@ -3,6 +3,7 @@ import { supabase } from '../../lib/supabase'
 import { tocarSucesso, tocarErro } from '../../mesa/utils/audio.js'
 import { Header } from '../components/Header'
 import { ScanBox } from '../components/ScanBox'
+import { DateInput } from '../components/DateInput'
 
 // Cor por urgência: vencido (vermelho) · ≤7 dias (laranja) · resto (neutro).
 function corValidade(dias) {
@@ -62,8 +63,8 @@ export function Validade({ unidadeId, unidadeNome, onVoltar }) {
           </div>
           <label className="block w-full max-w-xs">
             <span className="text-vallen-white font-semibold">Vence em</span>
-            <input type="date" value={data} onChange={e => setData(e.target.value)} autoFocus
-              className="mt-1 w-full bg-vallen-dark border-2 border-vallen-green rounded-xl px-4 py-3.5 text-xl text-vallen-white focus:outline-none" />
+            <DateInput value={data} onChange={setData}
+              className="mt-1 w-full bg-vallen-dark border-2 border-vallen-green rounded-xl px-4 py-3.5 text-xl text-vallen-white text-center focus:outline-none" />
           </label>
           <label className="block w-full max-w-xs">
             <span className="text-vallen-white font-semibold">Quantidade</span>

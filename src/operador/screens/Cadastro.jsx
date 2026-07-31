@@ -3,6 +3,9 @@ import { supabase } from '../../lib/supabase'
 import { tocarSucesso, tocarErro } from '../../mesa/utils/audio.js'
 import { Header } from '../components/Header'
 import { ScanBox } from '../components/ScanBox'
+import { DateInput } from '../components/DateInput'
+
+const num = (v) => parseFloat(String(v).replace(',', '.')) || 0
 
 // Cadastro de produto novo. Escaneia um código desconhecido → formulário simples
 // (nome digitado, preço, categoria, quantidade e validade opcionais).
@@ -10,7 +13,7 @@ export function Cadastro({ unidadeId, unidadeNome, onVoltar }) {
   const [codigo, setCodigo]   = useState(null)  // null = escaneando
   const [jaExiste, setJaExiste] = useState(null)
   const [cats, setCats]       = useState([])
-  const [form, setForm]       = useState({ nome: '', preco: '', categoria: '', emoji: '', qtd: '', validade: '' })
+  const [form, setForm]       = useState({ nome: '', custo: '', preco: '', categoria: '', emoji: '', qtd: '', validade: '' })
   const [salvando, setSalvando] = useState(false)
   const [ok, setOk]           = useState(null)
 
@@ -22,7 +25,7 @@ export function Cadastro({ unidadeId, unidadeNome, onVoltar }) {
   function aoDesconhecido(cod) {
     setCodigo(cod)
     setJaExiste(null)
-    setForm({ nome: '', preco: '', categoria: '', emoji: '', qtd: '', validade: '' })
+    setForm({ nome: '', custo: '', preco: '', categoria: '', emoji: '', qtd: '', validade: '' })
   }
   function aoProduto(row) {
     tocarErro()
@@ -32,10 +35,15 @@ export function Cadastro({ unidadeId, unidadeNome, onVoltar }) {
 
   function set(k, v) { setForm(f => ({ ...f, [k]: v })) }
 
+  const custoNum = num(form.custo), precoNum = num(form.preco)
+  const markupView = custoNum > 0 && precoNum > 0 ? ((precoNum - custoNum) / custoNum) * 100 : null
+
   async function salvar() {
-    const preco = parseFloat(String(form.preco).replace(',', '.'))
+    const preco = num(form.preco)
+    const custo = num(form.custo)
     if (!form.nome.trim()) { tocarErro(); return }
-    if (Number.isNaN(preco) || preco <= 0) { tocarErro(); return }
+    if (preco <= 0) { tocarErro(); return }
+    const markup = custo > 0 && preco > 0 ? Math.round(((preco - custo) / custo) * 1000) / 10 : null
     const qtd = form.qtd === '' ? null : parseInt(form.qtd, 10)
     const controla = qtd !== null && !Number.isNaN(qtd)
     setSalvando(true)
@@ -46,6 +54,7 @@ export function Cadastro({ unidadeId, unidadeNome, onVoltar }) {
       p_categoria: form.categoria || '', p_emoji: cat?.emoji || '', p_imagem_url: '',
       p_restrito_idade: false,
       p_quantidade: controla ? qtd : null, p_controla_estoque: controla,
+      p_preco_custo: custo > 0 ? custo : null, p_markup: markup,
     })
     if (error) { setSalvando(false); tocarErro(); alert(error.message); return }
     const produtoId = Array.isArray(data) ? data[0] : data
@@ -91,15 +100,31 @@ export function Cadastro({ unidadeId, unidadeNome, onVoltar }) {
               className="mt-1 w-full bg-vallen-dark border border-vallen-border rounded-xl px-4 py-3.5 text-lg text-vallen-white focus:outline-none focus:border-vallen-green" />
           </label>
 
-          <label className="block">
-            <span className="text-vallen-white font-semibold">Preço de venda</span>
-            <div className="mt-1 flex items-center gap-2">
-              <span className="text-vallen-white text-2xl font-bold">R$</span>
-              <input value={form.preco} onChange={e => set('preco', e.target.value.replace(/[^\d.,]/g, ''))}
-                inputMode="decimal" placeholder="0,00"
-                className="flex-1 bg-vallen-dark border border-vallen-border rounded-xl px-4 py-3.5 text-2xl font-black text-vallen-white focus:outline-none focus:border-vallen-green" />
-            </div>
-          </label>
+          <div className="grid grid-cols-2 gap-3">
+            <label className="block">
+              <span className="text-vallen-white font-semibold text-sm">Preço de custo</span>
+              <div className="mt-1 flex items-center gap-1">
+                <span className="text-vallen-muted text-lg font-bold">R$</span>
+                <input value={form.custo} onChange={e => set('custo', e.target.value.replace(/[^\d.,]/g, ''))}
+                  inputMode="decimal" placeholder="0,00"
+                  className="w-full min-w-0 bg-vallen-dark border border-vallen-border rounded-xl px-3 py-3 text-lg font-bold text-vallen-white focus:outline-none focus:border-vallen-green" />
+              </div>
+            </label>
+            <label className="block">
+              <span className="text-vallen-white font-semibold text-sm">Preço de venda</span>
+              <div className="mt-1 flex items-center gap-1">
+                <span className="text-vallen-white text-lg font-bold">R$</span>
+                <input value={form.preco} onChange={e => set('preco', e.target.value.replace(/[^\d.,]/g, ''))}
+                  inputMode="decimal" placeholder="0,00"
+                  className="w-full min-w-0 bg-vallen-dark border border-vallen-border rounded-xl px-3 py-3 text-lg font-black text-vallen-white focus:outline-none focus:border-vallen-green" />
+              </div>
+            </label>
+          </div>
+          {markupView != null && (
+            <p className="text-center text-sm font-semibold text-vallen-green -mt-1">
+              Markup: {markupView.toFixed(1).replace('.', ',')}%
+            </p>
+          )}
 
           {cats.length > 0 && (
             <div>
@@ -116,19 +141,17 @@ export function Cadastro({ unidadeId, unidadeNome, onVoltar }) {
             </div>
           )}
 
-          <div className="grid grid-cols-2 gap-3">
-            <label className="block">
-              <span className="text-vallen-white font-semibold text-sm">Quantidade</span>
-              <input value={form.qtd} onChange={e => set('qtd', e.target.value.replace(/\D/g, ''))}
-                inputMode="numeric" placeholder="opcional"
-                className="mt-1 w-full bg-vallen-dark border border-vallen-border rounded-xl px-4 py-3 text-lg text-vallen-white focus:outline-none focus:border-vallen-green" />
-            </label>
-            <label className="block">
-              <span className="text-vallen-white font-semibold text-sm">Validade</span>
-              <input type="date" value={form.validade} onChange={e => set('validade', e.target.value)}
-                className="mt-1 w-full bg-vallen-dark border border-vallen-border rounded-xl px-3 py-3 text-base text-vallen-white focus:outline-none focus:border-vallen-green" />
-            </label>
-          </div>
+          <label className="block">
+            <span className="text-vallen-white font-semibold text-sm">Quantidade inicial <span className="text-vallen-muted font-normal">(opcional)</span></span>
+            <input value={form.qtd} onChange={e => set('qtd', e.target.value.replace(/\D/g, ''))}
+              inputMode="numeric" placeholder="opcional"
+              className="mt-1 w-full bg-vallen-dark border border-vallen-border rounded-xl px-4 py-3 text-lg text-vallen-white focus:outline-none focus:border-vallen-green" />
+          </label>
+          <label className="block">
+            <span className="text-vallen-white font-semibold text-sm">Validade <span className="text-vallen-muted font-normal">(opcional)</span></span>
+            <DateInput value={form.validade} onChange={v => set('validade', v)}
+              className="mt-1 w-full bg-vallen-dark border border-vallen-border rounded-xl px-3 py-3 text-base text-vallen-white focus:outline-none focus:border-vallen-green" />
+          </label>
         </div>
         <div className="p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] border-t border-vallen-border bg-vallen-black">
           <button onClick={salvar} disabled={salvando || !form.nome.trim() || !form.preco}

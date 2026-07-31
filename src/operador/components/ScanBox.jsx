@@ -48,7 +48,16 @@ export function ScanBox({ unidadeId, onProduto, onDesconhecido, hint }) {
           .catch(() => { setLoading(false); setSemCamera(true) }),
       )
 
-    return () => { try { reader.reset() } catch (_) {} }
+    return () => {
+      try { reader.reset() } catch (_) {}
+      // iOS/Safari: reset() nem sempre solta o stream → para as tracks na mão,
+      // senão a câmera continua e re-escaneia o mesmo código (resetava o painel).
+      try {
+        const v = videoRef.current
+        const s = v && v.srcObject
+        if (s && s.getTracks) { s.getTracks().forEach(t => t.stop()); v.srcObject = null }
+      } catch (_) {}
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 

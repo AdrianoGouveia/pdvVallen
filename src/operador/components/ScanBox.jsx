@@ -12,6 +12,7 @@ export function ScanBox({ unidadeId, onProduto, onDesconhecido, hint }) {
   const videoRef  = useRef(null)
   const readerRef = useRef(null)
   const streamRef = useRef(null)
+  const mountedRef = useRef(true)
   const lastRef   = useRef('')
   const [feedback, setFeedback] = useState(null)
   const [manual, setManual]     = useState('')
@@ -52,6 +53,7 @@ export function ScanBox({ unidadeId, onProduto, onDesconhecido, hint }) {
       )
 
     return () => {
+      mountedRef.current = false // desmontou → nenhum callback zumbi dispara
       try { reader.reset() } catch (_) {}
       // iOS/Safari: reset() nem sempre solta o stream → para as tracks na mão (via
       // streamRef, que sobrevive ao unmount), senão a câmera continua e re-escaneia
@@ -67,6 +69,7 @@ export function ScanBox({ unidadeId, onProduto, onDesconhecido, hint }) {
   }, [])
 
   async function resolver(codigo) {
+    if (!mountedRef.current) return // câmera zumbi após desmontar → não dispara callback
     setBuscando(true)
     const { data, error } = await supabase.rpc('buscar_produto_operador', {
       p_unidade_id: unidadeId, p_codigo_barras: String(codigo),

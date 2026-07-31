@@ -133,9 +133,10 @@ export function Auditoria({ unidadeId, unidadeNome, onVoltar }) {
               <p className="text-vallen-muted text-xs mt-1">1ª contagem: {primeira?.contada}</p>
             </div>
           ) : (
-            <div className="text-center bg-vallen-card border border-vallen-border rounded-2xl px-8 py-4">
-              <p className="text-vallen-muted text-sm">No sistema tem</p>
-              <p className="text-vallen-white text-5xl font-black tabular-nums">{semControle ? '—' : produto.quantidade}</p>
+            <div className="text-center bg-vallen-card border border-vallen-border rounded-2xl px-6 py-4">
+              {/* Contagem às cegas: NÃO mostra o estoque do sistema, pra o operador
+                  contar de verdade em vez de só repetir o número. */}
+              <p className="text-vallen-muted text-sm">Conte quantos tem na prateleira</p>
               {produto.no_planograma && <p className="text-orange-400 text-xs mt-1">fora do planograma desta loja</p>}
             </div>
           )}

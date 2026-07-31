@@ -8,6 +8,7 @@ import { Cadastro } from './screens/Cadastro'
 import { Validade } from './screens/Validade'
 import { Aprovacoes } from './screens/Aprovacoes'
 import { Divergencias } from './screens/Divergencias'
+import { EntradaEstoque } from './screens/EntradaEstoque'
 
 const PAPEL_LABEL = { admin_vallen: 'Admin Vallen', franqueado: 'Franqueado', gerente: 'Gerente', repositor: 'Repositor' }
 
@@ -112,7 +113,7 @@ function Shell() {
   const props = { unidadeId, unidadeNome, onVoltar: voltar }
 
   // Guarda: se pediram uma tela sem permissão, cai na home.
-  const permDe = { aprovacoes: 'preco.aprovar', divergencias: 'estoque.validar', cadastro: 'cadastro.criar', validade: 'validade.gerenciar', auditoria: 'estoque.contar' }
+  const permDe = { aprovacoes: 'preco.aprovar', divergencias: 'estoque.validar', cadastro: 'cadastro.criar', validade: 'validade.gerenciar', auditoria: 'estoque.contar', entrada: 'estoque.entrada' }
   const permTela = permDe[tela]
   const bloqueada = permTela && !pode(permTela)
 
@@ -120,6 +121,7 @@ function Shell() {
   if (!bloqueada) {
     switch (tela) {
       case 'auditoria':   conteudo = <Auditoria {...props} />; break
+      case 'entrada':     conteudo = <EntradaEstoque {...props} />; break
       case 'preco':       conteudo = <Preco {...props} podeAjustarPreco={pode('preco.ajustar')} />; break
       case 'cadastro':    conteudo = <Cadastro {...props} />; break
       case 'validade':    conteudo = <Validade {...props} />; break

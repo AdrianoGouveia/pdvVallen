@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { tocarSucesso, tocarErro } from '../../mesa/utils/audio.js'
 import { Header } from '../components/Header'
@@ -19,6 +19,7 @@ export function Auditoria({ unidadeId, unidadeNome, onVoltar }) {
   const [resultado, setResultado]   = useState(null)   // card de fim
   const [salvando, setSalvando]     = useState(false)
   const [contados, setContados]     = useState(0)
+  const contandoRef = useRef(false) // true = já tem item aberto → ignora leitura zumbi
 
   useEffect(() => {
     supabase.rpc('abrir_contagem', { p_unidade_id: unidadeId })
@@ -29,6 +30,8 @@ export function Auditoria({ unidadeId, unidadeNome, onVoltar }) {
   }, [unidadeId])
 
   function aoEscanear(row) {
+    if (contandoRef.current) return // já contando um item → ignora leitura extra (câmera zumbi)
+    contandoRef.current = true
     setProduto(row); setFase('contar'); setPrimeira(null); setQtd(''); setValidade(''); setResultado(null)
   }
 
@@ -79,6 +82,7 @@ export function Auditoria({ unidadeId, unidadeNome, onVoltar }) {
   }
 
   function fecharComResultado(res) {
+    contandoRef.current = false
     setResultado(res); setProduto(null); setFase('contar'); setPrimeira(null); setQtd(''); setValidade('')
     setTimeout(() => setResultado(null), 2400)
   }
@@ -116,7 +120,7 @@ export function Auditoria({ unidadeId, unidadeNome, onVoltar }) {
     return (
       <div className="flex flex-col h-full bg-vallen-dark">
         <Header titulo={recontar ? 'Conte de novo' : 'Conferir estoque'} emoji="📋" unidadeNome={unidadeNome}
-          onVoltar={() => { setProduto(null); setFase('contar') }} />
+          onVoltar={() => { contandoRef.current = false; setProduto(null); setFase('contar') }} />
         <div className="flex-1 flex flex-col items-center justify-center gap-6 p-6">
           <div className="text-center">
             <span className="text-6xl">{produto.emoji || '📦'}</span>

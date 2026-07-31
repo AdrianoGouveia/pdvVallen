@@ -1,5 +1,6 @@
 // Menu principal do operador — ícones grandes, filtrado por permissão (RBAC).
 const ACOES = [
+  { id: 'entrada',      emoji: '📥', label: 'Entrada de estoque', perm: 'estoque.entrada' },
   { id: 'auditoria',    emoji: '📋', label: 'Conferir estoque',  perm: 'estoque.contar' },
   { id: 'preco',        emoji: '🏷️', label: 'Ajustar preço',      perm: null }, // qualquer membro; sem alçada vai p/ aprovação
   { id: 'cadastro',     emoji: '➕', label: 'Cadastrar produto',  perm: 'cadastro.criar' },

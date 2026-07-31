@@ -7,6 +7,7 @@ import { LojaMesa }      from './components/LojaMesa.jsx'
 import { Scanner }       from './components/Scanner.jsx'
 import { CarrinhoMesa }  from './components/CarrinhoMesa.jsx'
 import { PixMesa }       from './components/PixMesa.jsx'
+import { MaquininhaMesa } from './components/MaquininhaMesa.jsx'
 import { SucessoMesa }   from './components/SucessoMesa.jsx'
 
 // tela: loja | scanner | carrinho | pix | maquininha | sucesso
@@ -20,8 +21,6 @@ export default function MesaApp() {
   const [totalFinal, setTotalFinal] = useState(() => {
     try { return JSON.parse(sessionStorage.getItem('mesa_sucesso') || 'null')?.totalFinal ?? 0 } catch { return 0 }
   })
-  const [salvandoMaq, setSalvandoMaq] = useState(false)
-
   const [cliente, setCliente] = useState(() => {
     try { return JSON.parse(localStorage.getItem('mesa_cliente') || 'null') } catch { return null }
   })
@@ -58,26 +57,12 @@ export default function MesaApp() {
     setTela('sucesso')
   }
 
-  async function confirmarMaquininha() {
-    const totalAtual = total
-    setSalvandoMaq(true)
-    try {
-      await supabase.from('pedidos').insert({
-        total: totalAtual,
-        status: 'aguardando',
-        provider: 'maquininha',
-        unidade_id: unidade?.id ?? null,
-        ...(cliente?.id ? { cliente_id: cliente.id } : {}),
-      })
-      for (const item of cart) {
-        await supabase.rpc('decrementar_estoque', { produto_id: item.id, qtd: item.quantidade })
-      }
-    } catch (_) {}
+  function handleMaquininhaSucesso() {
+    const t = total
     tocarSucessoPagamento()
-    sessionStorage.setItem('mesa_sucesso', JSON.stringify({ tela: 'sucesso', totalFinal: totalAtual }))
-    setTotalFinal(totalAtual)
+    sessionStorage.setItem('mesa_sucesso', JSON.stringify({ tela: 'sucesso', totalFinal: t }))
+    setTotalFinal(t)
     setCart([])
-    setSalvandoMaq(false)
     setTela('sucesso')
   }
 
@@ -171,25 +156,14 @@ export default function MesaApp() {
       )}
 
       {tela === 'maquininha' && (
-        <div className="flex-1 flex flex-col items-center justify-center p-8 gap-6">
-          <div className="text-6xl">💳</div>
-          <h2 className="text-2xl font-bold text-center">Pague na maquininha</h2>
-          <div className="bg-vallen-card border border-vallen-border rounded-2xl px-10 py-6 text-center w-full max-w-xs">
-            <p className="text-sm text-vallen-muted mb-1">Valor total</p>
-            <p className="text-5xl font-black text-vallen-green">R$ {total.toFixed(2)}</p>
-          </div>
-          <p className="text-vallen-muted text-center text-sm">
-            Use a maquininha de cartão disponível na mesa.<br />Crédito, débito ou contactless.
-          </p>
-          <button onClick={confirmarMaquininha} disabled={salvandoMaq}
-            className="w-full max-w-xs py-4 bg-vallen-green hover:bg-vallen-greenLight disabled:opacity-60 text-white font-bold rounded-2xl text-lg transition-colors">
-            {salvandoMaq ? 'Registrando...' : '✓ Já paguei na maquininha'}
-          </button>
-          <button onClick={() => setTela('carrinho')}
-            className="text-sm text-vallen-muted hover:text-vallen-white">
-            ← Voltar
-          </button>
-        </div>
+        <MaquininhaMesa
+          cart={cart}
+          total={total}
+          unidadeId={unidade?.id}
+          clienteId={cliente?.id}
+          onSuccess={handleMaquininhaSucesso}
+          onVoltar={() => setTela('carrinho')}
+        />
       )}
 
       {/* Botão flutuante WhatsApp */}

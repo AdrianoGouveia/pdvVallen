@@ -20,8 +20,9 @@ export function LojaMesa({ cart, onAddToCart, onIniciarScanner, onVerCarrinho, c
     setLoading(true)
     let query = supabase
       .from('produtos')
-      .select('id,nome,preco,imagem_url,restrito_idade,destaque,categoria,estoque')
-      .order('estoque', { ascending: false })
+      .select('id,nome,preco,imagem_url,restrito_idade,destaque,categoria,estoque:estoque_cnpj')
+      .eq('catalogo_ativo', true) // 2 níveis: browse mostra só o catálogo ativo (base-de-consulta resolve só no scan)
+      .order('estoque_cnpj', { ascending: false })
       .order('nome', { ascending: true })
       .limit(60)
 

@@ -4,7 +4,6 @@ import { Cart }                 from './components/Cart'
 import { AgeVerificationModal } from './components/AgeVerificationModal'
 import { PaymentMethodModal }   from './components/PaymentMethodModal'
 import { Screensaver }          from './components/Screensaver'
-import { SupportCall }          from './components/SupportCall'
 import { PaymentSuccess }       from './components/PaymentSuccess'
 import { AdminPanel, useUnidade } from './components/AdminPanel'
 import { useBarcodeScanner }    from './hooks/useBarcodeScanner'
@@ -20,7 +19,6 @@ export default function App() {
   const [ageVerified, setAgeVerified]   = useState(false)
   const [scanFeedback, setScanFeedback] = useState(null)
   const [screensaver, setScreensaver]   = useState(true)
-  const [showSupport, setShowSupport]   = useState(false)
   const [showAdmin, setShowAdmin]       = useState(false)
   const [successData, setSuccessData]   = useState(null) // { total, unidade }
   const [cartCountdown, setCartCountdown] = useState(null) // null = inativo
@@ -50,7 +48,6 @@ export default function App() {
 
   function handleWake() {
     setScreensaver(false)
-    setShowSupport(true)
     resetIdle()
   }
 
@@ -158,7 +155,6 @@ export default function App() {
     setShowPaymentModal(false)
     setSuccessData(sd => sd ?? { total, unidade })
     clearCart()
-    setShowSupport(false)
   }, [stopCartTimer, clearCart, total, unidade])
 
   function handleSuccessDone() {
@@ -197,18 +193,6 @@ export default function App() {
           )}
         </div>
 
-        <button
-          onClick={() => setShowSupport(s => !s)}
-          className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors
-            ${showSupport
-              ? 'bg-vallen-green text-white'
-              : 'bg-vallen-card border border-vallen-border text-vallen-muted hover:text-vallen-white hover:border-vallen-green'}`}
-        >
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M3 8a2 2 0 012-2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z" />
-          </svg>
-          {showSupport ? 'Suporte ativo' : 'Chamar suporte'}
-        </button>
       </header>
 
       {/* Feedback scanner */}
@@ -220,11 +204,11 @@ export default function App() {
       )}
 
       {/* Main */}
-      <div className={`flex flex-1 overflow-hidden transition-all ${showSupport ? 'mr-80 xl:mr-96' : ''}`}>
+      <div className="flex flex-1 overflow-hidden">
         <div className="flex-1 overflow-hidden">
           <ProductGrid
             onAddToCart={addToCart}
-            focusEnabled={!showAgeModal && !showPaymentModal && !showAdmin && !showSupport}
+            focusEnabled={!showAgeModal && !showPaymentModal && !showAdmin}
           />
         </div>
         <div className="w-80 xl:w-96 flex-shrink-0 overflow-hidden">
@@ -240,8 +224,6 @@ export default function App() {
           />
         </div>
       </div>
-
-      {showSupport && <SupportCall onClose={() => setShowSupport(false)} />}
 
       {showAdmin && <AdminPanel onClose={() => setShowAdmin(false)} />}
 

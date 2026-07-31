@@ -86,11 +86,13 @@ export function CarrinhoMesa({ cart, setCart, onVoltar, onPix, onMaquininha, cli
           <span className="text-xl">📱</span> Pagar com PIX
         </button>
 
-        <button onClick={onMaquininha}
-          disabled={bloqueadoPorIdade}
-          className="w-full py-3.5 bg-vallen-card border border-vallen-border hover:border-vallen-green disabled:opacity-40 disabled:cursor-not-allowed text-vallen-white font-medium rounded-2xl transition-colors flex items-center justify-center gap-2">
-          <span>💳</span> Pagar na maquininha
-        </button>
+        {onMaquininha && (
+          <button onClick={onMaquininha}
+            disabled={bloqueadoPorIdade}
+            className="w-full py-3.5 bg-vallen-card border border-vallen-border hover:border-vallen-green disabled:opacity-40 disabled:cursor-not-allowed text-vallen-white font-medium rounded-2xl transition-colors flex items-center justify-center gap-2">
+            <span>💳</span> Pagar na maquininha
+          </button>
+        )}
 
         <button onClick={onVoltar}
           className="w-full py-2 text-sm text-vallen-muted hover:text-vallen-white transition-colors">

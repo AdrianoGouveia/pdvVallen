@@ -18,7 +18,7 @@ function calcularIs18(dataNasc) {
   return (Date.now() - dataNasc.getTime()) / (1000 * 3600 * 24 * 365.25) >= 18
 }
 
-export function CadastroModal({ onConcluido }) {
+export function CadastroModal({ onConcluido, onFechar }) {
   const [form, setForm]       = useState({ nome: '', telefone: '', nascimento: '' })
   const [erro, setErro]       = useState('')
   const [loading, setLoading] = useState(false)
@@ -84,7 +84,14 @@ export function CadastroModal({ onConcluido }) {
 
   return (
     <div className="fixed inset-0 bg-black/90 z-50 flex flex-col items-center justify-center p-6">
-      <div className="w-full max-w-sm bg-vallen-card border border-vallen-border rounded-2xl p-6 space-y-5">
+      <div className="relative w-full max-w-sm bg-vallen-card border border-vallen-border rounded-2xl p-6 space-y-5">
+
+        {onFechar && (
+          <button type="button" onClick={onFechar}
+            className="absolute top-3 right-3 text-vallen-muted hover:text-vallen-white text-2xl leading-none px-1">
+            ×
+          </button>
+        )}
 
         <div className="text-center space-y-1">
           <div className="text-4xl mb-2">👋</div>

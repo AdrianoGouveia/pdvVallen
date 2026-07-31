@@ -1,13 +1,15 @@
 import { useState } from 'react'
 import { FranqueadoProvider, useFranqueado } from '../admin/lib/franqueadoContext'
 import { supabase } from '../lib/supabase'
-import { useAuthz } from './lib/useAuthz'
 import { Home } from './screens/Home'
 import { Auditoria } from './screens/Auditoria'
 import { Preco } from './screens/Preco'
 import { Cadastro } from './screens/Cadastro'
 import { Validade } from './screens/Validade'
 import { Aprovacoes } from './screens/Aprovacoes'
+import { Divergencias } from './screens/Divergencias'
+
+const PAPEL_LABEL = { admin_vallen: 'Admin Vallen', franqueado: 'Franqueado', gerente: 'Gerente', repositor: 'Repositor' }
 
 const Spinner = () => (
   <div className="flex items-center justify-center h-screen bg-vallen-dark">
@@ -93,35 +95,46 @@ function Shell() {
   const {
     loading, session, franqueados, franqueadoId,
     unidades, unidadeId, selectUnidade, logout,
+    pode, papel, isSuperAdmin, authzLoading,
   } = useFranqueado()
-  const authz = useAuthz(franqueadoId)
   const [tela, setTela] = useState('home')
 
   if (loading) return <Spinner />
   if (!session) return <LoginOperador />
   if (!franqueadoId || !unidadeId) return <SelecaoLoja />
+  if (authzLoading) return <Spinner />
 
   const unidade = unidades.find(u => u.id === unidadeId)
   const franq   = franqueados.find(f => f.id === franqueadoId)
   const unidadeNome = unidade?.nome || ''
+  const papelLabel = isSuperAdmin ? PAPEL_LABEL.admin_vallen : (PAPEL_LABEL[papel] || papel)
   const voltar = () => setTela('home')
   const props = { unidadeId, unidadeNome, onVoltar: voltar }
 
+  // Guarda: se pediram uma tela sem permissão, cai na home.
+  const permDe = { aprovacoes: 'preco.aprovar', divergencias: 'estoque.validar', cadastro: 'cadastro.criar', validade: 'validade.gerenciar', auditoria: 'estoque.contar' }
+  const permTela = permDe[tela]
+  const bloqueada = permTela && !pode(permTela)
+
   let conteudo
-  switch (tela) {
-    case 'auditoria': conteudo = <Auditoria {...props} />; break
-    case 'preco':     conteudo = <Preco {...props} podeAjustarPreco={authz.podeAjustarPreco} />; break
-    case 'cadastro':  conteudo = <Cadastro {...props} />; break
-    case 'validade':  conteudo = <Validade {...props} />; break
-    case 'aprovacoes':conteudo = authz.role === 'admin' ? <Aprovacoes {...props} /> : null; break
-    default: conteudo = null
+  if (!bloqueada) {
+    switch (tela) {
+      case 'auditoria':   conteudo = <Auditoria {...props} />; break
+      case 'preco':       conteudo = <Preco {...props} podeAjustarPreco={pode('preco.ajustar')} />; break
+      case 'cadastro':    conteudo = <Cadastro {...props} />; break
+      case 'validade':    conteudo = <Validade {...props} />; break
+      case 'aprovacoes':  conteudo = <Aprovacoes {...props} />; break
+      case 'divergencias':conteudo = <Divergencias {...props} />; break
+      default: conteudo = null
+    }
   }
   if (!conteudo) {
     conteudo = (
       <Home
         unidadeNome={unidadeNome}
         franqueadoNome={franq?.nome_fantasia || franq?.razao_social}
-        podeAprovar={authz.role === 'admin'}
+        papelLabel={papelLabel}
+        pode={pode}
         onNav={setTela}
         onTrocarUnidade={() => { selectUnidade(null); }}
         onSair={logout}

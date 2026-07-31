@@ -4,19 +4,19 @@ import { tocarSucesso, tocarErro } from '../../mesa/utils/audio.js'
 import { Header } from '../components/Header'
 import { ScanBox } from '../components/ScanBox'
 
-// Auditoria de estoque — sessão de contagem NÃO-destrutiva.
-// Escaneia → mostra o que o sistema tem → conta → mostra a diferença (cor + seta).
-// Nada muda no estoque até "Aplicar contagem".
+// Auditoria de estoque — contagem NÃO-destrutiva com divergência.
+// Conta → bateu (conferido) | divergiu → 2ª contagem → confirma → gerente valida.
+// Nada muda no estoque aqui; só a aprovação do gerente ajusta.
 export function Auditoria({ unidadeId, unidadeNome, onVoltar }) {
   const [contagemId, setContagemId] = useState(null)
   const [erroInit, setErroInit]     = useState('')
   const [produto, setProduto]       = useState(null)   // null = escaneando
+  const [fase, setFase]             = useState('contar') // 'contar' | 'recontar'
+  const [primeira, setPrimeira]     = useState(null)   // {contada} da 1ª contagem
   const [qtd, setQtd]               = useState('')
-  const [resultado, setResultado]   = useState(null)   // card de diferença
+  const [resultado, setResultado]   = useState(null)   // card de fim
   const [salvando, setSalvando]     = useState(false)
   const [contados, setContados]     = useState(0)
-  const [revisao, setRevisao]       = useState(null)   // null | array de itens
-  const [aplicando, setAplicando]   = useState(false)
 
   useEffect(() => {
     supabase.rpc('abrir_contagem', { p_unidade_id: unidadeId })
@@ -27,105 +27,69 @@ export function Auditoria({ unidadeId, unidadeNome, onVoltar }) {
   }, [unidadeId])
 
   function aoEscanear(row) {
-    setProduto(row)
-    setQtd('')
-    setResultado(null)
+    setProduto(row); setFase('contar'); setPrimeira(null); setQtd(''); setResultado(null)
   }
 
   async function confirmar() {
     const n = parseInt(qtd, 10)
     if (Number.isNaN(n) || n < 0) { tocarErro(); return }
     setSalvando(true)
-    const { data, error } = await supabase.rpc('registrar_contagem_item', {
-      p_contagem_id: contagemId, p_produto_id: produto.produto_id, p_qtd_contada: n,
-    })
-    setSalvando(false)
-    if (error) { tocarErro(); setResultado({ erro: error.message }); return }
-    const r = Array.isArray(data) ? data[0] : data
-    tocarSucesso()
-    setContados(c => c + 1)
-    setResultado({
-      nome: produto.nome, emoji: produto.emoji,
-      sistema: r.qtd_sistema, contada: r.qtd_contada, diff: r.diferenca,
-    })
-    setProduto(null); setQtd('')
-    setTimeout(() => setResultado(null), 2200)
+    if (fase === 'contar') {
+      const { data, error } = await supabase.rpc('registrar_contagem_item', {
+        p_contagem_id: contagemId, p_produto_id: produto.produto_id, p_qtd_contada: n,
+      })
+      setSalvando(false)
+      if (error) { tocarErro(); alert(error.message); return }
+      const r = Array.isArray(data) ? data[0] : data
+      setContados(c => c + 1)
+      if (r.status === 'divergente') {
+        // pede 2ª contagem
+        tocarErro()
+        setPrimeira({ contada: r.qtd_contada, sistema: r.qtd_sistema })
+        setFase('recontar'); setQtd('')
+        return
+      }
+      tocarSucesso()
+      fecharComResultado({ tipo: 'ok', nome: produto.nome, sistema: r.qtd_sistema, contada: r.qtd_contada })
+    } else {
+      const { data, error } = await supabase.rpc('recontar_item', {
+        p_contagem_id: contagemId, p_produto_id: produto.produto_id, p_qtd_recontada: n,
+      })
+      setSalvando(false)
+      if (error) { tocarErro(); alert(error.message); return }
+      const r = Array.isArray(data) ? data[0] : data
+      if (r.status === 'conferido') {
+        tocarSucesso()
+        fecharComResultado({ tipo: 'ok', nome: produto.nome, sistema: r.qtd_sistema, contada: r.qtd_recontada })
+      } else {
+        tocarSucesso()
+        fecharComResultado({ tipo: 'gerente', nome: produto.nome, sistema: r.qtd_sistema, contada: r.qtd_recontada })
+      }
+    }
   }
 
-  async function abrirRevisao() {
-    const { data } = await supabase.rpc('listar_contagem_itens', { p_contagem_id: contagemId })
-    setRevisao(data || [])
+  function fecharComResultado(res) {
+    setResultado(res); setProduto(null); setFase('contar'); setPrimeira(null); setQtd('')
+    setTimeout(() => setResultado(null), 2400)
   }
 
-  async function aplicar() {
-    setAplicando(true)
-    const { error } = await supabase.rpc('aplicar_contagem', { p_contagem_id: contagemId })
-    setAplicando(false)
-    if (error) { tocarErro(); alert(error.message); return }
-    tocarSucesso()
-    onVoltar()
-  }
-
-  // ---- tela de revisão + aplicar
-  if (revisao) {
-    return (
-      <div className="flex flex-col h-full bg-vallen-dark">
-        <Header titulo="Revisar contagem" emoji="📋" unidadeNome={unidadeNome} onVoltar={() => setRevisao(null)} />
-        <div className="flex-1 overflow-y-auto divide-y divide-vallen-border">
-          {revisao.length === 0 && (
-            <div className="flex flex-col items-center justify-center h-full gap-2 text-vallen-gray">
-              <span className="text-4xl">📭</span><p>Nenhum item contado ainda</p>
-            </div>
-          )}
-          {revisao.map(it => {
-            const d = it.diferenca
-            const cor = d === 0 ? 'text-vallen-green' : d < 0 ? 'text-red-400' : 'text-orange-400'
-            const seta = d === 0 ? '=' : d < 0 ? '↓' : '↑'
-            return (
-              <div key={it.produto_id} className="flex items-center gap-3 px-4 py-3">
-                <span className="text-2xl">{it.emoji || '📦'}</span>
-                <div className="flex-1 min-w-0">
-                  <p className="text-vallen-white font-medium truncate">{it.produto_nome}</p>
-                  <p className="text-vallen-muted text-xs">
-                    Sistema {it.qtd_sistema ?? '—'} · Contado {it.qtd_contada}
-                  </p>
-                </div>
-                <span className={`font-black text-lg ${cor}`}>{seta} {d === 0 ? '' : Math.abs(d)}</span>
-              </div>
-            )
-          })}
-        </div>
-        <div className="p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] border-t border-vallen-border bg-vallen-black">
-          <button onClick={aplicar} disabled={aplicando || revisao.length === 0}
-            className="w-full py-4 bg-vallen-green disabled:opacity-40 text-white font-bold rounded-2xl text-lg">
-            {aplicando ? 'Aplicando…' : `Aplicar contagem (${revisao.length})`}
-          </button>
-          <p className="text-center text-vallen-muted text-xs mt-2">Isso atualiza o estoque do sistema.</p>
-        </div>
-      </div>
-    )
-  }
-
-  // ---- card de diferença (pós-confirmação)
-  if (resultado && !resultado.erro) {
-    const d = resultado.diff
-    const ok = d === 0
-    const falta = d < 0
-    const bg = ok ? 'bg-vallen-green' : falta ? 'bg-red-600' : 'bg-orange-500'
+  // ---- card de resultado
+  if (resultado) {
+    const gerente = resultado.tipo === 'gerente'
+    const bg = gerente ? 'bg-orange-500' : 'bg-vallen-green'
     return (
       <div className="flex flex-col h-full bg-vallen-dark">
         <Header titulo="Conferir estoque" emoji="📋" unidadeNome={unidadeNome} onVoltar={onVoltar} />
-        <button onClick={() => setResultado(null)}
-          className={`flex-1 flex flex-col items-center justify-center gap-5 text-white ${bg} p-6`}>
-          <span className="text-7xl">{ok ? '✅' : falta ? '⬇️' : '⬆️'}</span>
+        <button onClick={() => setResultado(null)} className={`flex-1 flex flex-col items-center justify-center gap-5 text-white ${bg} p-6`}>
+          <span className="text-7xl">{gerente ? '📤' : '✅'}</span>
           <p className="text-2xl font-bold text-center">{resultado.nome}</p>
           <div className="flex items-center gap-5 text-center">
             <div><p className="text-sm opacity-80">Sistema</p><p className="text-5xl font-black tabular-nums">{resultado.sistema ?? '—'}</p></div>
             <span className="text-4xl opacity-80">→</span>
             <div><p className="text-sm opacity-80">Contado</p><p className="text-5xl font-black tabular-nums">{resultado.contada}</p></div>
           </div>
-          <p className="text-3xl font-black">
-            {ok ? 'Bateu certinho' : falta ? `Faltou ${Math.abs(d)}` : `Sobrou ${d}`}
+          <p className="text-2xl font-black text-center">
+            {gerente ? 'Divergência enviada pro gerente validar' : 'Bateu certinho'}
           </p>
           <span className="text-sm opacity-80 mt-2">toque para continuar</span>
         </button>
@@ -133,33 +97,39 @@ export function Auditoria({ unidadeId, unidadeNome, onVoltar }) {
     )
   }
 
-  // ---- painel de contagem (produto escaneado)
+  // ---- painel de contagem / recontagem
   if (produto) {
+    const recontar = fase === 'recontar'
     const semControle = produto.no_planograma || !produto.controla_estoque
     return (
       <div className="flex flex-col h-full bg-vallen-dark">
-        <Header titulo="Conferir estoque" emoji="📋" unidadeNome={unidadeNome} onVoltar={() => setProduto(null)} />
+        <Header titulo={recontar ? 'Conte de novo' : 'Conferir estoque'} emoji="📋" unidadeNome={unidadeNome}
+          onVoltar={() => { setProduto(null); setFase('contar') }} />
         <div className="flex-1 flex flex-col items-center justify-center gap-6 p-6">
           <div className="text-center">
             <span className="text-6xl">{produto.emoji || '📦'}</span>
             <p className="text-vallen-white font-bold text-2xl mt-3">{produto.nome}</p>
           </div>
 
-          <div className="text-center bg-vallen-card border border-vallen-border rounded-2xl px-8 py-4">
-            <p className="text-vallen-muted text-sm">No sistema tem</p>
-            <p className="text-vallen-white text-5xl font-black tabular-nums">
-              {semControle ? '—' : produto.quantidade}
-            </p>
-            {produto.no_planograma && <p className="text-orange-400 text-xs mt-1">fora do planograma desta loja</p>}
-          </div>
+          {recontar ? (
+            <div className="text-center bg-orange-500/15 border border-orange-500/40 rounded-2xl px-6 py-4">
+              <p className="text-orange-300 text-sm font-semibold">Deu diferente. Conte de novo com calma.</p>
+              <p className="text-vallen-muted text-xs mt-1">1ª contagem: {primeira?.contada}</p>
+            </div>
+          ) : (
+            <div className="text-center bg-vallen-card border border-vallen-border rounded-2xl px-8 py-4">
+              <p className="text-vallen-muted text-sm">No sistema tem</p>
+              <p className="text-vallen-white text-5xl font-black tabular-nums">{semControle ? '—' : produto.quantidade}</p>
+              {produto.no_planograma && <p className="text-orange-400 text-xs mt-1">fora do planograma desta loja</p>}
+            </div>
+          )}
 
           <div className="w-full">
             <p className="text-center text-vallen-muted text-base mb-2">Quantas você contou?</p>
             <div className="flex items-center gap-3 justify-center">
               <button onClick={() => setQtd(q => String(Math.max(0, (parseInt(q, 10) || 0) - 1)))}
                 className="w-16 h-16 rounded-2xl bg-vallen-card border border-vallen-border text-vallen-white text-3xl font-bold">−</button>
-              <input value={qtd} onChange={e => setQtd(e.target.value.replace(/\D/g, ''))}
-                inputMode="numeric" placeholder="0" autoFocus
+              <input value={qtd} onChange={e => setQtd(e.target.value.replace(/\D/g, ''))} inputMode="numeric" placeholder="0" autoFocus
                 className="w-28 h-16 text-center bg-vallen-dark border-2 border-vallen-green rounded-2xl text-vallen-white text-4xl font-black focus:outline-none" />
               <button onClick={() => setQtd(q => String((parseInt(q, 10) || 0) + 1))}
                 className="w-16 h-16 rounded-2xl bg-vallen-card border border-vallen-border text-vallen-white text-3xl font-bold">+</button>
@@ -169,21 +139,20 @@ export function Auditoria({ unidadeId, unidadeNome, onVoltar }) {
         <div className="p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] border-t border-vallen-border bg-vallen-black">
           <button onClick={confirmar} disabled={salvando || qtd === ''}
             className="w-full py-4 bg-vallen-green disabled:opacity-40 text-white font-bold rounded-2xl text-lg">
-            {salvando ? 'Salvando…' : 'Confirmar contagem'}
+            {salvando ? 'Salvando…' : recontar ? 'Confirmar 2ª contagem' : 'Confirmar contagem'}
           </button>
         </div>
       </div>
     )
   }
 
-  // ---- estado: escaneando
+  // ---- escaneando
   return (
     <div className="flex flex-col h-full bg-vallen-dark">
       <Header titulo="Conferir estoque" emoji="📋" unidadeNome={unidadeNome} onVoltar={onVoltar} />
       {erroInit ? (
         <div className="flex-1 flex flex-col items-center justify-center gap-3 p-6 text-center">
-          <span className="text-5xl">⚠️</span>
-          <p className="text-red-400">{erroInit}</p>
+          <span className="text-5xl">⚠️</span><p className="text-red-400">{erroInit}</p>
         </div>
       ) : !contagemId ? (
         <div className="flex-1 flex items-center justify-center">
@@ -191,14 +160,10 @@ export function Auditoria({ unidadeId, unidadeNome, onVoltar }) {
         </div>
       ) : (
         <>
-          <ScanBox unidadeId={unidadeId} onProduto={aoEscanear}
-            hint="Escaneie um produto para conferir" />
+          <ScanBox unidadeId={unidadeId} onProduto={aoEscanear} hint="Escaneie um produto para conferir" />
           {contados > 0 && (
-            <div className="p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] border-t border-vallen-border bg-vallen-black">
-              <button onClick={abrirRevisao}
-                className="w-full py-4 bg-vallen-card border border-vallen-border text-vallen-white font-bold rounded-2xl text-base">
-                Revisar e aplicar ({contados})
-              </button>
+            <div className="px-4 py-2 text-center text-vallen-muted text-sm bg-vallen-black border-t border-vallen-border flex-shrink-0">
+              {contados} {contados === 1 ? 'item conferido' : 'itens conferidos'} nesta contagem
             </div>
           )}
         </>

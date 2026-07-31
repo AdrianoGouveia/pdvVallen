@@ -89,7 +89,9 @@ export function Auditoria({ unidadeId, unidadeNome, onVoltar }) {
             <div><p className="text-sm opacity-80">Contado</p><p className="text-5xl font-black tabular-nums">{resultado.contada}</p></div>
           </div>
           <p className="text-2xl font-black text-center">
-            {gerente ? 'Divergência enviada pro gerente validar' : 'Bateu certinho'}
+            {gerente ? 'Divergência enviada pro gerente validar'
+              : (resultado.sistema === 0 || resultado.sistema == null) ? 'Estoque inicial registrado'
+              : 'Bateu certinho'}
           </p>
           <span className="text-sm opacity-80 mt-2">toque para continuar</span>
         </button>

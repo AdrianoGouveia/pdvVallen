@@ -22,7 +22,10 @@ export function Validade({ unidadeId, unidadeNome, onVoltar }) {
   const [salvando, setSalvando] = useState(false)
 
   function carregar() {
-    supabase.rpc('listar_validades', { p_unidade_id: unidadeId, p_dias: 30 })
+    // Mostra TODOS os lotes ativos (o vencimento mais próximo primeiro), não só
+    // os dos próximos 30 dias — senão lotes recém-cadastrados (que vencem longe)
+    // não apareciam e parecia que não salvou.
+    supabase.rpc('listar_validades', { p_unidade_id: unidadeId, p_dias: 3650 })
       .then(({ data }) => setLista(data || []))
   }
   useEffect(() => { carregar() }, [unidadeId])
@@ -105,11 +108,11 @@ export function Validade({ unidadeId, unidadeNome, onVoltar }) {
         ) : lista.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full gap-2 text-vallen-gray p-6 text-center">
             <span className="text-5xl">📅</span>
-            <p>Nenhum produto vencendo nos próximos 30 dias</p>
+            <p>Nenhum lote de validade cadastrado</p>
           </div>
         ) : (
           <div className="divide-y divide-vallen-border">
-            <p className="px-4 py-2 text-xs text-vallen-muted">Vencendo nos próximos 30 dias</p>
+            <p className="px-4 py-2 text-xs text-vallen-muted">Lotes por vencimento (mais próximo primeiro)</p>
             {lista.map(v => {
               const c = corValidade(v.dias_restantes)
               return (

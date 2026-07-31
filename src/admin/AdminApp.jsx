@@ -11,10 +11,12 @@ import { Pedidos }       from './pages/Pedidos.jsx'
 import { Categorias }    from './pages/Categorias.jsx'
 import { RelatorioVendas } from './pages/RelatorioVendas.jsx'
 import { Usuarios }      from './pages/Usuarios.jsx'
+import { Franqueados }   from './pages/Franqueados.jsx'
 
 // Cada item exige uma permissão (RBAC). O menu e as rotas escondem o que a
 // pessoa não pode. `perm: null` = visível a qualquer papel do painel.
 const NAV = [
+  { to: '/admin/franqueados', label: 'Franquias',   icon: '🏛️', perm: 'franqueados.gerenciar' },
   { to: '/admin/pendencias',  label: 'Pendências',  icon: '⚠️', multi: true, perm: 'pendencias.resolver' },
   { to: '/admin/condominios', label: 'Condomínios', icon: '🏢', perm: 'unidades.gerenciar' },
   { to: '/admin/categorias',  label: 'Categorias',  icon: '🏷️', perm: 'produtos.editar' },
@@ -103,6 +105,7 @@ function AdminShell() {
       <main className="flex-1 overflow-auto">
         <Routes>
           <Route index                 element={<Navigate to={itens[0]?.to.replace('/admin/','') || 'pendencias'} replace />} />
+          <Route path="franqueados"    element={<Guard perm="franqueados.gerenciar"><Franqueados /></Guard>} />
           <Route path="pendencias"     element={<Guard perm="pendencias.resolver"><Pendencias /></Guard>} />
           <Route path="condominios"    element={<Guard perm="unidades.gerenciar"><Condominios /></Guard>} />
           <Route path="categorias"     element={<Guard perm="produtos.editar"><Categorias /></Guard>} />

@@ -1,29 +1,33 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
+import { useFranqueado } from '../lib/franqueadoContext.jsx'
 import { PageHeader } from '../components/PageHeader.jsx'
 import { Modal } from '../components/Modal.jsx'
 import { Field, inputCls, Btn } from '../components/Field.jsx'
+import { MaquininhasLoja } from '../components/MaquininhasLoja.jsx'
 
 const empty = { nome: '', codigo: '', endereco: '', cidade: '', cep: '', whatsapp: '', ativo: true }
 
 export function Condominios() {
+  const { franqueadoId } = useFranqueado()
   const [lista, setLista]   = useState([])
   const [modal, setModal]   = useState(null) // null | 'new' | item
   const [form, setForm]     = useState(empty)
   const [saving, setSaving] = useState(false)
 
   async function load() {
-    const { data } = await supabase.from('unidades').select('*').order('nome')
+    if (!franqueadoId) { setLista([]); return }
+    const { data } = await supabase.from('unidades').select('*').eq('franqueado_id', franqueadoId).order('nome')
     setLista(data || [])
   }
-  useEffect(() => { load() }, [])
+  useEffect(() => { load() }, [franqueadoId])
 
   function abrir(item) { setForm(item ?? empty); setModal(item ?? 'new') }
 
   async function salvar(e) {
     e.preventDefault(); setSaving(true)
     const payload = { nome: form.nome, codigo: form.codigo, endereco: form.endereco, cidade: form.cidade, cep: form.cep, whatsapp: form.whatsapp || null, ativo: form.ativo }
-    if (modal === 'new') await supabase.from('unidades').insert(payload)
+    if (modal === 'new') await supabase.from('unidades').insert({ ...payload, franqueado_id: franqueadoId })
     else await supabase.from('unidades').update(payload).eq('id', form.id)
     setSaving(false); setModal(null); load()
   }
@@ -94,6 +98,9 @@ export function Condominios() {
               <Btn type="button" variant="ghost" onClick={() => setModal(null)}>Cancelar</Btn>
             </div>
           </form>
+          {modal !== 'new' && form.id
+            ? <MaquininhasLoja unidadeId={form.id} franqueadoId={franqueadoId} />
+            : <p className="text-xs text-vallen-muted border-t border-vallen-border pt-4 mt-4">Salve a loja para cadastrar as maquininhas.</p>}
         </Modal>
       )}
     </div>

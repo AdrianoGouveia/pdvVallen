@@ -52,9 +52,11 @@ export class DwpdvConnector extends PosConnector {
   get id() { return 'dwpdv' }
 
   // ── transporte A: API oficial apidwpdv ──────────────────────────────────────
-  #matriz  = process.env.DWPDV_MATRIZ
-  #user    = process.env.DWPDV_USERNAME
-  #pass    = process.env.DWPDV_PASSWORD
+  // Fallback pras creds do ERP: é a MESMA conta DWPDV/Foodcash, então quando só
+  // DWPDV_ERP_* está configurado (ex.: Vercel) a leitura de vendas também funciona.
+  #matriz  = process.env.DWPDV_MATRIZ   || process.env.DWPDV_ERP_CNPJ
+  #user    = process.env.DWPDV_USERNAME || process.env.DWPDV_ERP_USER
+  #pass    = process.env.DWPDV_PASSWORD || process.env.DWPDV_ERP_PASSWORD
   #token   = null
   #tokenExp = 0
 

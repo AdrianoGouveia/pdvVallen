@@ -47,8 +47,9 @@ export function ProductGrid({ onAddToCart, focusEnabled = true }) {
 
     let query = supabase
       .from('produtos')
-      .select('id, nome, preco, codigo_barras, estoque, imagem_url, restrito_idade, destaque, categoria')
-      .order('estoque', { ascending: false })
+      .select('id, nome, preco, codigo_barras, estoque:estoque_cnpj, imagem_url, restrito_idade, destaque, categoria')
+      .eq('catalogo_ativo', true) // 2 níveis: browse mostra só o catálogo ativo (base-de-consulta resolve só no scan por código)
+      .order('estoque_cnpj', { ascending: false })
       .order('nome',    { ascending: true })
       .range(from, to)
 

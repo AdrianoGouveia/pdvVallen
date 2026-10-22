@@ -391,7 +391,8 @@ export class BeepayWeb {
     try { lojas = JSON.parse((f.has('txtCodLojasAlteradas') && f.field('txtCodLojasAlteradas').value) || '[]') } catch { lojas = [] }
     const gravados = []
     for (const l of linhas) {
-      const m = String(l.attrs.onchange || '').match(/changeValue\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)/)
+      // a chamada fica no onblur/onchange (varia) — procura em qualquer atributo do campo
+      const m = Object.values(l.attrs).join(' ').match(/changeValue\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)/)
       if (!m) continue
       const [, , codloja, codprod] = m
       const pref = l.name.replace(/txtvalor$/i, '')

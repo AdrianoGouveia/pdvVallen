@@ -15,15 +15,11 @@ export function Preco({ unidadeId, unidadeNome, podeAjustarPreco, onVoltar }) {
   const [salvando, setSalvando] = useState(false)
   const [resultado, setResultado] = useState(null)
 
+  // Loja sem planograma → preço atual é o do catálogo (produtos.preco).
   function aoEscanear(row) {
-    if (row.no_planograma) {
-      tocarErro()
-      setResultado({ aviso: `${row.nome} não está no planograma desta loja. Cadastre primeiro.` })
-      setTimeout(() => setResultado(null), 2600)
-      return
-    }
-    setProduto(row)
-    setNovo(Number(row.preco_venda).toFixed(2))
+    const atual = row.preco_venda ?? row.preco_ref
+    setProduto({ ...row, preco_venda: atual })
+    setNovo(Number(atual || 0).toFixed(2))
     setOrigem('manual')
   }
 

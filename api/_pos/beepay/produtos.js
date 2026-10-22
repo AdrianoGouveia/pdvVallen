@@ -59,8 +59,14 @@ export async function drenarProdutosBeepay(sb, pos, { limite = 5, prazoMs = 8000
   try {
     // 'enviando' travado (worker morreu): seguro reenviar — o cadastro casa por EAN
     if (!dry) await ob().update({ status: 'pendente', updated_at: agora() }).eq('status', 'enviando').lt('updated_at', new Date(Date.now() - TRAVADO_MS).toISOString())
-    const { data: fila, error } = await ob().select('produto_id,tentativas').eq('status', 'pendente').order('updated_at').limit(limite)
+    // prioridade: mudança do dia a dia (app, planograma, venda, script) passa na frente do
+    // backfill — uma edição de preço não espera atrás de centenas de itens em lote
+    const { data: urgentes, error } = await ob().select('produto_id,tentativas').eq('status', 'pendente').or('origem.is.null,origem.neq.backfill').order('updated_at').limit(limite)
     if (error) throw new Error(`produto_beepay_outbox: ${error.message}`)
+    const { data: lote, error: eb } = urgentes.length >= limite ? { data: [] }
+      : await ob().select('produto_id,tentativas').eq('status', 'pendente').eq('origem', 'backfill').order('updated_at').limit(limite - urgentes.length)
+    if (eb) throw new Error(`produto_beepay_outbox: ${eb.message}`)
+    const fila = [...urgentes, ...lote]
     res.fila = fila.length
     if (!fila.length) return res
     const { data: fil, error: e0 } = await integ().from('beepay_filial').select('unidade_id').eq('sync_produtos', true)

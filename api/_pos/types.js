@@ -41,6 +41,18 @@
  */
 
 /**
+ * Venda APROVADA do Vallen p/ registrar no PDV (cupom), já com o código do PDV por item.
+ * @typedef {Object} CanonVendaRegistro
+ * @property {number} pedidoId          chave de idempotência
+ * @property {number=} unidadeId
+ * @property {number} total             valor pago
+ * @property {string} ocorridoEm        ISO
+ * @property {string=} pagoEm           ISO
+ * @property {{forma:'pix'|'credito'|'debito', gateway?:string, nsu?:string, bandeira?:string, idTransacao?:string}} pagamento
+ * @property {Array<{codigoBarras:string, nome:string, quantidade:number, precoUnitario:number, custo?:number, beepayCodigo?:string, beepayCodigoVenda?:string}>} itens
+ */
+
+/**
  * @typedef {Object} CanonEstoqueEvt
  * @property {'deposito'|'filial'} escopo
  * @property {string=} unidadeCodigo

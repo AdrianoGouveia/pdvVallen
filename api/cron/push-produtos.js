@@ -12,6 +12,11 @@ export default async function handler(req, res) {
     || req.headers.authorization === `Bearer ${secret}`
     || req.query?.key === secret
   if (!authOk) return res.status(401).json({ error: 'unauthorized' })
+  // 2026-10-19: o destino do catálogo passou a ser o Beepay (api/cron/push-produtos-beepay.js).
+  // DWPDV só recebe se reativado explicitamente; sai sem tocar o outbox.
+  if (process.env.DWPDV_PUSH_PRODUTOS !== 'on') {
+    return res.status(200).json({ ok: false, motivo: 'push p/ DWPDV desligado (destino agora é o Beepay; DWPDV_PUSH_PRODUTOS=on reativa)' })
+  }
 
   const URL = process.env.SUPABASE_URL, KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
   if (!URL || !KEY) return res.status(500).json({ error: 'faltam SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY' })

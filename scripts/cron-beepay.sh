@@ -29,7 +29,8 @@ ENV_FILE="${VALLEN_CRON_ENV:-/opt/vallen-cron.env}"
 : "${CRON_SECRET:?defina CRON_SECRET em $ENV_FILE}"
 
 case "${1:-}" in
-  produtos) URL="$VALLEN_BASE_URL/api/cron/push-produtos-beepay" ;;
+  # 2º arg opcional = query extra, ex.: produtos "dry=1&limite=1"  |  produtos "limite=30&prazo=50000"
+  produtos) URL="$VALLEN_BASE_URL/api/cron/push-produtos-beepay${2:+?$2}" ;;
   push)     URL="$VALLEN_BASE_URL/api/cron/push-vendas-beepay" ;;
   sync)     URL="$VALLEN_BASE_URL/api/cron/sync-vendas-beepay"
             [ -n "${2:-}" ] && URL="$URL?desde=$2${3:+&ate=$3}" ;;

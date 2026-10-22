@@ -55,7 +55,7 @@ export async function drenarProdutosBeepay(sb, pos, { limite = 5, prazoMs = 8000
   }
   if (!dry && !(await lease())) return { ok: true, ocupado: true } // outro worker rodando
 
-  const res = { ok: true, fila: 0, criados: 0, atualizados: 0, ignorados: 0, erros: 0 }
+  const res = { ok: true, fila: 0, criados: 0, atualizados: 0, ignorados: 0, erros: 0, itens: [] } // itens: p/ log/conferência
   try {
     // 'enviando' travado (worker morreu): seguro reenviar — o cadastro casa por EAN
     if (!dry) await ob().update({ status: 'pendente', updated_at: agora() }).eq('status', 'enviando').lt('updated_at', new Date(Date.now() - TRAVADO_MS).toISOString())
@@ -88,7 +88,7 @@ export async function drenarProdutosBeepay(sb, pos, { limite = 5, prazoMs = 8000
       }
       const p = row && canonProduto(row, precoLoja)
       const motivo = !p ? 'produto não existe' : !eanOk(p.codigoBarras) ? `sem EAN válido (${p.codigoBarras || 'vazio'})` : !(p.precoReferencia > 0) ? 'sem preço' : null
-      if (motivo) { res.ignorados++; if (!dry) await marca(o.produto_id, { status: 'ignorado', erro: motivo }, 'enviando'); continue }
+      if (motivo) { res.ignorados++; res.itens.push({ id: o.produto_id, ignorado: motivo }); if (!dry) await marca(o.produto_id, { status: 'ignorado', erro: motivo }, 'enviando'); continue }
       if (dry) { res.amostra ??= p; continue }
       try {
         const r = await pos.cadastrarProduto(p, { atualizar: true, codigoVendaMin: dica })
@@ -101,6 +101,7 @@ export async function drenarProdutosBeepay(sb, pos, { limite = 5, prazoMs = 8000
         const avisos = [...(r.avisos || []), ...(avisoPreco ? [avisoPreco] : [])]
         // só fecha se ninguém reenfileirou durante o envio (trigger volta p/ 'pendente')
         await marca(o.produto_id, { status: 'enviado', acao: r.acao, sent_at: agora(), tentativas: 0, erro: avisos.length ? avisos.join('; ').slice(0, 500) : null }, 'enviando')
+        res.itens.push({ id: o.produto_id, ean: p.codigoBarras, acao: r.acao, cod: r.produto?.codigoVenda ?? null, preco: p.precoReferencia, avisos })
         log(`produto ${o.produto_id} ${p.codigoBarras} → Beepay ${r.acao} (cod ${r.produto?.codigoVenda})`)
       } catch (e) {
         const msg = String(e?.message || e).slice(0, 450)
@@ -116,6 +117,7 @@ export async function drenarProdutosBeepay(sb, pos, { limite = 5, prazoMs = 8000
           break
         }
         res.erros++
+        res.itens.push({ id: o.produto_id, ean: p.codigoBarras, erro: msg.slice(0, 160) })
         if (e instanceof BeepayIncerto) { await marca(o.produto_id, { status: 'erro', erro: msg }, 'enviando'); continue }
         const tent = o.tentativas + 1
         await marca(o.produto_id, { status: tent >= MAX_TENT ? 'erro' : 'pendente', tentativas: tent, erro: msg }, 'enviando')

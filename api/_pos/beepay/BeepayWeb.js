@@ -287,7 +287,11 @@ export class BeepayWeb {
       const nome = String(p.nome || '').trim()
       if (nome) for (const [campo, max] of [['txtdescrcupom', 100], ['txtNome', 150], ['txtDescrTabletQrCodeMesa', 150]])
         if (f.has(campo)) quer(campo, nome.slice(0, max))
-      if (Number(p.precoReferencia) > 0 && f.has('txtvalor')) quer('txtvalor', brl(p.precoReferencia))
+      if (Number(p.precoReferencia) > 0) {
+        const gravados = await this.#precoFiliais(f, p.precoReferencia) // tabela de preços por filial
+        if (gravados.length) gravados.forEach(n => { esperado[n] = brl(p.precoReferencia) })
+        else if (f.has('txtvalor')) quer('txtvalor', brl(p.precoReferencia))
+      }
     }
     // grupo + classe = categoria (mesmo nome). Classe é gravada de txtClassesLote (ddlClasses
     // é só UI). Troca SÓ a classe-de-categoria (nome igual a um grupo); classes manuais ficam.
@@ -371,6 +375,40 @@ export class BeepayWeb {
     f.check(ok[0].name)
     const pb = postBackDe(ok[0].attrs.onclick)
     return pb ? this.#post(f, { eventTarget: pb.target }, 'inv-filial') : f
+  }
+
+  // Preço da TABELA DE PREÇOS por filial (grade GridView2 da edição). A tela grava cada linha
+  // via Ajax putValueTabelaPrecos (tabela temporária codTabela) + marca a filial em
+  // txtCodLojasAlteradas; o "Gravar" efetiva. Só o campo do form NÃO basta quando a filial já
+  // tem preço próprio (visto em 2026-10-22: o preço não mudava). Preço do Vallen é global →
+  // grava em todas as filiais da grade. Devolve os names das linhas gravadas.
+  async #precoFiliais(f, preco) {
+    const tabela = f.has('txtCodTabela') ? String(f.field('txtCodTabela').value || '') : ''
+    const linhas = f.fields.filter(x => /\$GridView2\$ctl\d+\$txtvalor$/i.test(x.name))
+    if (!tabela || !linhas.length) return []
+    const pega = (n) => (f.match(n).length ? String(f.get(n) ?? '') : '')
+    let lojas = []
+    try { lojas = JSON.parse((f.has('txtCodLojasAlteradas') && f.field('txtCodLojasAlteradas').value) || '[]') } catch { lojas = [] }
+    const gravados = []
+    for (const l of linhas) {
+      const m = String(l.attrs.onchange || '').match(/changeValue\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)/)
+      if (!m) continue
+      const [, , codloja, codprod] = m
+      const pref = l.name.replace(/txtvalor$/i, '')
+      const qs = new URLSearchParams({
+        codproduto: codprod, valor: brl(preco), codfilial: codloja, codTabela: tabela,
+        grupotributario: pega(pref + 'ddlGrupoTC'), numdias: pega(pref + 'txtDiasReposicoes'),
+        estoqueminimo: pega(pref + 'txtEstoqueMinimo'), pausar: String(f.pairs.some(p => p[0] === pref + 'ckbPausar')), telaProdutos: 'true',
+      })
+      const r = await this.#s.request(`ajax/putValueTabelaPrecos.ashx?${qs}`, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+      if (ehLogin(r)) throw new BeepaySessaoExpirada('putValueTabelaPrecos')
+      if (r.status !== 200 || !(parseInt(r.text, 10) > 0)) throw new BeepayErro(`preço da filial ${codloja} recusado (putValueTabelaPrecos: ${r.text.slice(0, 40) || r.status})`, { status: r.status })
+      f.set(l.name, brl(preco), { raw: true })
+      if (!lojas.some(x => String(x.CodLoja) === codloja)) lojas.push({ CodLoja: Number(codloja) })
+      gravados.push(l.name)
+    }
+    if (gravados.length && f.has('txtCodLojasAlteradas')) f.set('txtCodLojasAlteradas', JSON.stringify(lojas))
+    return gravados
   }
 
   // diagnóstico: salva as telas-chave + resumo dos campos/postbacks em debugDir
